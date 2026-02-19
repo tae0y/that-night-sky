@@ -1,5 +1,7 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
+import datetime
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -155,7 +157,6 @@ col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
 with col1:
     address = st.text_input("장소", placeholder="예: 부산광역시 가야동", label_visibility="visible")
 with col2:
-    import datetime
     date_val = st.date_input("날짜", value=datetime.date(1995, 1, 15), label_visibility="visible")
 with col3:
     time_val = st.time_input("시각", value=datetime.time(0, 0), label_visibility="visible", step=300)

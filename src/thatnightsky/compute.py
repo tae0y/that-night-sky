@@ -114,7 +114,7 @@ def compute_sky_data(
     ).at(t)
 
     ra, dec, _ = observer.radec()
-    center = _earth.at(t).observe(Star(ra=ra, dec=dec))
+    center = _earth.at(t).observe(Star(ra=ra, dec=dec))  # type: ignore[union-attr]
     projection = build_stereographic_projection(center)
 
     stars_df = _stars_df.copy()
@@ -124,7 +124,7 @@ def compute_sky_data(
     ground = _eph["earth"] + wgs84.latlon(
         latitude_degrees=context.lat, longitude_degrees=context.lng
     )
-    star_positions = _earth.at(t).observe(Star.from_dataframe(stars_df))
+    star_positions = _earth.at(t).observe(Star.from_dataframe(stars_df))  # type: ignore[union-attr]
     x_arr, y_arr = projection(star_positions)
 
     # Altitude/azimuth: must observe from ground observer (earth + latlon) to use altaz()

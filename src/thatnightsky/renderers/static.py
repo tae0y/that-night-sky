@@ -10,6 +10,7 @@ from matplotlib.patches import Circle
 from thatnightsky.models import SkyData
 
 _ROOT = Path(__file__).parent.parent.parent.parent
+_LINE_COLOR = "#7ec8e3"
 
 
 def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
@@ -26,7 +27,7 @@ def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
     fig.patch.set_facecolor("black")
     ax.set_facecolor("black")
 
-    border = plt.Circle((0, 0), 1, color="black", fill=True)
+    border = Circle((0, 0), 1, color="black", fill=True)
     ax.add_patch(border)
 
     x_vals = np.array([s.x for s in sky_data.stars])
@@ -39,7 +40,12 @@ def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
             x0, y0 = hip_to_xy[line.hip_from]
             x1, y1 = hip_to_xy[line.hip_to]
             ax.plot(
-                [x0, x1], [y0, y1], color="#7ec8e3", linewidth=0.5, alpha=0.6, zorder=1
+                [x0, x1],
+                [y0, y1],
+                color=_LINE_COLOR,
+                linewidth=0.5,
+                alpha=0.6,
+                zorder=1,
             )
 
     marker_size = 100 * 10 ** (mags / -2.5)
