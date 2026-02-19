@@ -8,16 +8,19 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
+    "altair<5",
+    "anthropic>=0.82.0",
     "certifi>=2026.1.4",
     "geopy>=2.4.1",
     "httpx>=0.28.1",
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
-    "pandas>=3.0.1",
+    "pandas>=1.4.0,<3",
     "plotly>=6.5.2",
     "python-dotenv>=1.2.1",
     "pytz>=2025.2",
     "skyfield>=1.54",
+    "streamlit>=1.54",
     "timezonefinder>=8.2.1",
 ]
 

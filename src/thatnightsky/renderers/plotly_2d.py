@@ -75,22 +75,27 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
 
     fig = go.Figure(data=[line_trace, star_trace])
 
+    # 지평선 원: y=-1(하단)~y=1(상단), 반지름=1
+    # input bar가 화면 하단 ~7rem 차지 → 차트 영역 높이 = 100vh - 7rem
+    # 초기 뷰: 지평선 원의 지름(y: -1~1)이 차트 높이에 꽉 차고,
+    #           지평선 하단(y=-1)이 차트 하단에 맞닿도록 y range를 [-1, 1]로 설정.
+    # scaleanchor로 x는 자동 계산됨 (가로가 넓으면 x range가 넓어짐).
     fig.update_layout(
         paper_bgcolor=_BG,
         plot_bgcolor=_BG,
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0),
+        autosize=True,
         dragmode="pan",
         xaxis=dict(
             visible=False,
-            range=[-1.1, 1.1],
             scaleanchor="y",
             scaleratio=1,
             fixedrange=False,
         ),
         yaxis=dict(
             visible=False,
-            range=[-1.1, 1.1],
+            range=[-1.0, 1.0],
             fixedrange=False,
         ),
         # 지평선 원
