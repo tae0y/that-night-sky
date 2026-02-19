@@ -38,10 +38,14 @@ def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
         if line.hip_from in hip_to_xy and line.hip_to in hip_to_xy:
             x0, y0 = hip_to_xy[line.hip_from]
             x1, y1 = hip_to_xy[line.hip_to]
-            ax.plot([x0, x1], [y0, y1], color="#7ec8e3", linewidth=0.5, alpha=0.6, zorder=1)
+            ax.plot(
+                [x0, x1], [y0, y1], color="#7ec8e3", linewidth=0.5, alpha=0.6, zorder=1
+            )
 
     marker_size = 100 * 10 ** (mags / -2.5)
-    ax.scatter(x_vals, y_vals, s=marker_size, color="white", marker=".", linewidths=0, zorder=2)
+    ax.scatter(
+        x_vals, y_vals, s=marker_size, color="white", marker=".", linewidths=0, zorder=2
+    )
 
     horizon = Circle((0, 0), radius=1, transform=ax.transData)
     for col in ax.collections:

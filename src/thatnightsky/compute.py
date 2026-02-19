@@ -5,7 +5,6 @@ from datetime import datetime
 from pathlib import Path
 
 import httpx
-import numpy as np
 from pytz import timezone, utc
 from skyfield.api import Loader, Star, wgs84
 from skyfield.data import hipparcos
@@ -88,7 +87,9 @@ def geocode_address(address: str, when: str) -> ObserverContext:
     local_tz = timezone(tz_str)
     utc_dt = local_tz.localize(dt, is_dst=None).astimezone(utc)
 
-    return ObserverContext(lat=lat, lng=lng, utc_dt=utc_dt, address_display=address_display)
+    return ObserverContext(
+        lat=lat, lng=lng, utc_dt=utc_dt, address_display=address_display
+    )
 
 
 def compute_sky_data(
@@ -148,7 +149,8 @@ def compute_sky_data(
     visible_hip_set = {r.hip for r in records if r.alt_deg >= 0}
     all_lines = load_constellation_lines()
     visible_lines = tuple(
-        line for line in all_lines
+        line
+        for line in all_lines
         if line.hip_from in visible_hip_set and line.hip_to in visible_hip_set
     )
     visible_names = tuple(dict.fromkeys(line.name for line in visible_lines))
@@ -181,7 +183,9 @@ def load_constellation_lines() -> tuple[ConstellationLine, ...]:
             name = parts[0]
             hips = [int(p) for p in parts[2:]]
             for i in range(0, len(hips) - 1, 2):
-                lines.append(ConstellationLine(hip_from=hips[i], hip_to=hips[i + 1], name=name))
+                lines.append(
+                    ConstellationLine(hip_from=hips[i], hip_to=hips[i + 1], name=name)
+                )
     return tuple(lines)
 
 

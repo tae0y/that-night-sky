@@ -20,7 +20,11 @@ def generate_night_description(
     Returns:
         한국어 한 문단 감성 텍스트.
     """
-    constellations_str = ", ".join(visible_constellation_names[:10]) if visible_constellation_names else "알 수 없음"
+    constellations_str = (
+        ", ".join(visible_constellation_names[:10])
+        if visible_constellation_names
+        else "알 수 없음"
+    )
 
     client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
     message = client.messages.create(

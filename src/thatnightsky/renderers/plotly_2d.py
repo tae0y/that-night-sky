@@ -51,9 +51,7 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
     )
 
     # --- 별자리 선분: None 구분 방식 단일 trace ---
-    hip_to_xy: dict[int, tuple[float, float]] = {
-        s.hip: (s.x, s.y) for s in visible
-    }
+    hip_to_xy: dict[int, tuple[float, float]] = {s.hip: (s.x, s.y) for s in visible}
     lx: list[float | None] = []
     ly: list[float | None] = []
     for line in sky_data.constellation_lines:
