@@ -95,20 +95,22 @@ st.markdown(
         line-height: 1.8;
         font-style: italic;
     }
-    /* Narrative overlay: full width strip, above chart (z10), below input bar (z100) */
+    /* Narrative overlay: centered 2/3-width strip, above chart (z10), below input bar (z100) */
     [data-testid="stElementContainer"]:has(.overlay-box) {
         position: fixed !important;
         bottom: 7rem !important;
-        left: 0 !important;
-        right: 0 !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        width: 66vw !important;
         z-index: 50 !important;
     }
     [data-testid="stElementContainer"]:has(.overlay-box) .overlay-box {
-        border-radius: 0 !important;
+        border-radius: 8px !important;
         margin-bottom: 0 !important;
         text-align: center !important;
-        max-height: 35vh !important;
+        max-height: calc(1.8em * 3 + 2.4rem) !important;
         overflow-y: auto !important;
+        box-sizing: border-box !important;
     }
     /* Chart: full viewport width, fixed 30px above input bar */
     [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
