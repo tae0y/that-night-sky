@@ -145,13 +145,44 @@ def compute_sky_data(
             )
         )
 
+    visible_hip_set = {r.hip for r in records if r.alt_deg >= 0}
+    all_lines = load_constellation_lines()
+    visible_lines = tuple(
+        line for line in all_lines
+        if line.hip_from in visible_hip_set and line.hip_to in visible_hip_set
+    )
+    visible_names = tuple(dict.fromkeys(line.name for line in visible_lines))
+
     return SkyData(
         context=context,
         stars=tuple(records),
-        constellation_lines=(),  # Step 3에서 채움
+        constellation_lines=visible_lines,
         limiting_magnitude=limiting_magnitude,
-        visible_constellation_names=(),  # Step 3에서 채움
+        visible_constellation_names=visible_names,
     )
+
+
+def load_constellation_lines() -> tuple[ConstellationLine, ...]:
+    """resources/constellationship.fab를 파싱하여 별자리 선분 목록을 반환한다.
+
+    파일 형식: ``IAU약자 선쌍수 HIP1 HIP2 HIP3 HIP4 ...``
+    연속된 HIP 번호 쌍이 하나의 선분을 이룬다.
+
+    Returns:
+        ConstellationLine 튜플. hip_from → hip_to 방향 선분.
+    """
+    fab_path = _ROOT / "resources" / "constellationship.fab"
+    lines: list[ConstellationLine] = []
+    with fab_path.open(encoding="utf-8") as f:
+        for raw in f:
+            parts = raw.split()
+            if len(parts) < 4:
+                continue
+            name = parts[0]
+            hips = [int(p) for p in parts[2:]]
+            for i in range(0, len(hips) - 1, 2):
+                lines.append(ConstellationLine(hip_from=hips[i], hip_to=hips[i + 1], name=name))
+    return tuple(lines)
 
 
 def run(query: QueryInput, limiting_magnitude: float = 6.5) -> SkyData:

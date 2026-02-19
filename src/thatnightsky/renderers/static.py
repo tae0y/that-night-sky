@@ -33,6 +33,13 @@ def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
     y_vals = np.array([s.y for s in sky_data.stars])
     mags = np.array([s.magnitude for s in sky_data.stars])
 
+    hip_to_xy = {s.hip: (s.x, s.y) for s in sky_data.stars}
+    for line in sky_data.constellation_lines:
+        if line.hip_from in hip_to_xy and line.hip_to in hip_to_xy:
+            x0, y0 = hip_to_xy[line.hip_from]
+            x1, y1 = hip_to_xy[line.hip_to]
+            ax.plot([x0, x1], [y0, y1], color="#7ec8e3", linewidth=0.5, alpha=0.6, zorder=1)
+
     marker_size = 100 * 10 ** (mags / -2.5)
     ax.scatter(x_vals, y_vals, s=marker_size, color="white", marker=".", linewidths=0, zorder=2)
 
