@@ -41,11 +41,13 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - Resolves Korean addresses to lat/lng via vworld API (ROAD → PARCEL fallback)
 - Computes star positions using skyfield + stereographic projection
 - Parses `resources/constellationship.fab` for constellation line segments
-- Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial import cost)
+- Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial cost; incurred once per Streamlit process start, not per re-run)
 
-**`narrative.py`** — Generates Korean poetic prose using Anthropic claude-sonnet-4-6
+**`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
 
-**`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart
+**`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart; the only renderer used by the Streamlit app
+
+**`renderers/static.py`** — Matplotlib static PNG renderer; used only by `starchart.py` (legacy), not by the Streamlit app
 
 **`resources/`** — Binary data files (committed to repo):
 - `de421.bsp`: NASA JPL ephemeris
