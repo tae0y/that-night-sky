@@ -10,9 +10,11 @@ requires-python = ">=3.12"
 dependencies = [
     "certifi>=2026.1.4",
     "geopy>=2.4.1",
+    "httpx>=0.28.1",
     "matplotlib>=3.10.8",
     "numpy>=2.4.2",
     "pandas>=3.0.1",
+    "python-dotenv>=1.2.1",
     "pytz>=2025.2",
     "skyfield>=1.54",
     "timezonefinder>=8.2.1",
