@@ -93,16 +93,32 @@ st.markdown(
         line-height: 1.8;
         font-style: italic;
     }
-    /* plotly 차트: input bar 높이(7rem) 제외한 전체 높이 */
-    .js-plotly-plot, .plotly, .plot-container {
-        background: #050a1a !important;
-        height: calc(100vh - 7rem) !important;
+    /* 차트: 화면 폭 전체, 하단을 input bar 위 30px에 고정 */
+    [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: calc(7rem + 30px - 50vw) !important;
+        width: 100vw !important;
+        height: 100vw !important;
+        z-index: 10 !important;
+        overflow: visible !important;
     }
+    [data-testid="stFullScreenFrame"]:has([data-testid="stPlotlyChart"]),
     [data-testid="stPlotlyChart"] {
-        height: calc(100vh - 7rem) !important;
-    }
-    [data-testid="stPlotlyChart"] > div {
+        width: 100% !important;
         height: 100% !important;
+        overflow: visible !important;
+    }
+    /* Plotly 내부 div 계층 전체 채움 */
+    [data-testid="stPlotlyChart"] > div,
+    [data-testid="stPlotlyChart"] .js-plotly-plot,
+    [data-testid="stPlotlyChart"] .plotly,
+    [data-testid="stPlotlyChart"] .plot-container,
+    [data-testid="stPlotlyChart"] .svg-container {
+        width: 100% !important;
+        height: 100% !important;
+        background: #050a1a !important;
     }
     </style>
     """,
@@ -124,7 +140,7 @@ if st.session_state.sky_data is not None:
     fig = render_plotly_chart(st.session_state.sky_data)
     chart_placeholder.plotly_chart(
         fig,
-        use_container_width=True,
+        use_container_width=False,
         config={"scrollZoom": True, "displayModeBar": False},
     )
 else:
