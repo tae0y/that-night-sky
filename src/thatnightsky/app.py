@@ -107,6 +107,8 @@ st.markdown(
         border-radius: 0 !important;
         margin-bottom: 0 !important;
         text-align: center !important;
+        max-height: 35vh !important;
+        overflow-y: auto !important;
     }
     /* Chart: full viewport width, fixed 30px above input bar */
     [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
@@ -194,7 +196,11 @@ with col1:
     )
 with col2:
     date_val = st.date_input(
-        "날짜", value=datetime.date(1995, 1, 15), label_visibility="visible"
+        "날짜",
+        value=datetime.date(1995, 1, 15),
+        min_value=datetime.date(1900, 1, 1),
+        max_value=datetime.date.today(),
+        label_visibility="visible",
     )
 with col3:
     time_val = st.time_input(
