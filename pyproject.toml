@@ -1,0 +1,26 @@
+[project]
+name = "thatnightsky"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "ParkTaeYoung(tae0y)", email = "tae0yp@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "certifi>=2026.1.4",
+    "geopy>=2.4.1",
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.2",
+    "pandas>=3.0.1",
+    "pytz>=2025.2",
+    "skyfield>=1.54",
+    "timezonefinder>=8.2.1",
+]
+
+[project.scripts]
+thatnightsky = "thatnightsky:main"
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"

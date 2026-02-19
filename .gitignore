@@ -5,3 +5,7 @@ __except/*
 localdocs/
 
 .env
+
+*.download*
+
+results/

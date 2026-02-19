@@ -2,7 +2,6 @@ from datetime import datetime
 import geopy.adapters
 from geopy.geocoders import Nominatim
 import geopy.geocoders
-from tzwhere import tzwhere
 from pytz import timezone, utc
 
 import numpy as np
@@ -10,7 +9,7 @@ import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
 from matplotlib.patches import Circle
 
-from skyfield.api import Star, load, wgs84
+from skyfield.api import Loader, Star, wgs84
 from skyfield.data import hipparcos
 from skyfield.projections import build_stereographic_projection
 
@@ -18,10 +17,13 @@ from timezonefinder import TimezoneFinder
 
 import ssl
 import certifi
+from pathlib import Path
 
+_ROOT = Path(__file__).parent.parent.parent
+load = Loader(str(_ROOT / 'resources'))
 eph = load('de421.bsp')
 
-with load.open(hipparcos.URL) as f:
+with load.open('hip_main.dat') as f:
     stars = hipparcos.load_dataframe(f)
 
 where = '부산광역시 가야동'
@@ -94,8 +96,8 @@ ax.set_xlim(-1, 1)
 ax.set_ylim(-1, 1)
 plt.axis('off')
 
-results_dir = './results/'
+results_dir = str(_ROOT / 'results') + '/'
 filename = f"{where}__{when}.png".replace(" ", "_").replace(":","_").replace("-","_")
 print('[DEBUG] filename - ', filename)
 plt.savefig(results_dir + filename)
-plt.show()
+plt.close(fig)
