@@ -1,3 +1,7 @@
 .DS_Store
 __except/*
 .tnsenv/*
+
+localdocs/
+
+.env
