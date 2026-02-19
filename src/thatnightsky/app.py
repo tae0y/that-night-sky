@@ -95,22 +95,9 @@ st.markdown(
         line-height: 1.8;
         font-style: italic;
     }
-    /* Narrative overlay: centered 2/3-width strip, above chart (z10), below input bar (z100) */
+    /* overlay-box Streamlit wrapper: collapse to zero so it doesn't interfere */
     [data-testid="stElementContainer"]:has(.overlay-box) {
-        position: fixed !important;
-        bottom: 7rem !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        width: 66vw !important;
-        z-index: 50 !important;
-    }
-    [data-testid="stElementContainer"]:has(.overlay-box) .overlay-box {
-        border-radius: 8px !important;
-        margin-bottom: 0 !important;
-        text-align: center !important;
-        max-height: calc(1.8em * 3 + 2.4rem) !important;
-        overflow-y: auto !important;
-        box-sizing: border-box !important;
+        all: unset !important;
     }
     /* Chart: full viewport width, fixed 30px above input bar */
     [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
@@ -229,7 +216,24 @@ if st.session_state.error_msg:
 # --- Narrative text ---
 if st.session_state.narrative:
     st.markdown(
-        f"<div class='overlay-box'><p class='narrative-text'>{st.session_state.narrative}</p></div>",
+        f"""<div class='overlay-box' style='
+            position: fixed;
+            bottom: 7rem;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            max-height: calc(1.8em * 3 + 2.4rem);
+            overflow-y: auto;
+            box-sizing: border-box;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+        '><p class='narrative-text' style='
+            width: 60%;
+            margin: 0 auto;
+            text-align: center;
+            word-break: keep-all;
+            overflow-wrap: break-word;
+        '>{st.session_state.narrative}</p></div>""",
         unsafe_allow_html=True,
     )
 
