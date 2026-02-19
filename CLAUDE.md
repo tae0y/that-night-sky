@@ -10,7 +10,7 @@ A Streamlit web app that renders an interactive star chart for a given date and 
 
 ```shell
 # Streamlit app (main entry point)
-uv run streamlit run app.py
+uv run streamlit run src/thatnightsky/app.py
 
 # Legacy static PNG script
 uv run python src/thatnightsky/starchart.py
@@ -26,7 +26,7 @@ ANTHROPIC_API_KEY=...    # Claude API (used for narrative text generation)
 
 ## Architecture
 
-`src/thatnightsky/` contains all core logic. `app.py` is the Streamlit entry point that wires the package together.
+`src/thatnightsky/` contains all code including the Streamlit entry point (`app.py`).
 
 Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.render_*()` → Plotly Figure
 
@@ -52,9 +52,17 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - `hip_main.dat`: Hipparcos star catalogue
 - `constellationship.fab`: Constellation line definitions (Stellarium format)
 
-## Pre-commit Hooks
+## Checks
 
-Run automatically on commit:
+Lint, format, and type checks without modifying files:
+```shell
+uv run ruff check src/
+uv run ruff format --check src/
+uv run pyright src/
+uv run bandit -r src/ -c pyproject.toml
+```
+
+Pre-commit hooks run automatically on commit:
 - `ruff` (lint + format, with auto-fix)
 - `pyright` (type checking)
 - `bandit` (security scan, configured via `pyproject.toml`)

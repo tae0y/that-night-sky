@@ -41,8 +41,8 @@ st.markdown(
         padding-top: 0 !important;
         padding-bottom: 7rem !important;
     }
-    /* Input bar: fix stLayoutWrapper (columns wrapper) to bottom */
-    [data-testid="stLayoutWrapper"] {
+    /* Input bar: fix stLayoutWrapper (columns wrapper) to bottom — only when text input present */
+    [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) {
         position: fixed !important;
         bottom: 0 !important;
         left: 0 !important;
@@ -95,6 +95,19 @@ st.markdown(
         line-height: 1.8;
         font-style: italic;
     }
+    /* Narrative overlay: full width strip, above chart (z10), below input bar (z100) */
+    [data-testid="stElementContainer"]:has(.overlay-box) {
+        position: fixed !important;
+        bottom: 7rem !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 50 !important;
+    }
+    [data-testid="stElementContainer"]:has(.overlay-box) .overlay-box {
+        border-radius: 0 !important;
+        margin-bottom: 0 !important;
+        text-align: center !important;
+    }
     /* Chart: full viewport width, fixed 30px above input bar */
     [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
         position: fixed !important;
@@ -134,6 +147,27 @@ if "narrative" not in st.session_state:
     st.session_state.narrative = None
 if "error_msg" not in st.session_state:
     st.session_state.error_msg = None
+if "privacy_agreed" not in st.session_state:
+    st.session_state.privacy_agreed = False
+
+
+# --- Privacy notice (shown until agreed) ---
+@st.dialog("개인정보 처리 고지")
+def _privacy_dialog() -> None:
+    st.write(
+        "입력한 날짜와 장소는 저장되지 않으며, 별자리 생성 목적으로만 AI(Anthropic Claude) API에 전송됩니다."
+    )
+    st.write("서버 운영 로그는 7일 후 자동 삭제됩니다.")
+    st.markdown(
+        "본 서비스는 [Anthropic의 데이터 처리 정책](https://www.anthropic.com/legal/privacy)을 따릅니다."
+    )
+    if st.button("확인", key="privacy_confirm", use_container_width=True):
+        st.session_state.privacy_agreed = True
+        st.rerun()
+
+
+if not st.session_state.privacy_agreed:
+    _privacy_dialog()
 
 # --- Chart area ---
 chart_placeholder = st.empty()
@@ -153,16 +187,28 @@ else:
     )
 
 # --- Bottom input bar (fixed via CSS) ---
-col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1.5])
 with col1:
-    address = st.text_input("장소", placeholder="예: 부산광역시 가야동", label_visibility="visible")
+    address = st.text_input(
+        "장소", placeholder="예: 부산광역시 가야동", label_visibility="visible"
+    )
 with col2:
-    date_val = st.date_input("날짜", value=datetime.date(1995, 1, 15), label_visibility="visible")
+    date_val = st.date_input(
+        "날짜", value=datetime.date(1995, 1, 15), label_visibility="visible"
+    )
 with col3:
-    time_val = st.time_input("시각", value=datetime.time(0, 0), label_visibility="visible", step=300)
+    time_val = st.time_input(
+        "시각", value=datetime.time(0, 0), label_visibility="visible", step=300
+    )
 with col4:
+    theme = st.text_input(
+        "이 날의 의미",
+        placeholder="예: 생일, 첫 만남, 기일",
+        label_visibility="visible",
+    )
+with col5:
     st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
-    submitted = st.button("✦ 밤하늘 보기", use_container_width=True)
+    submitted = st.button("✦ 밤하늘보기", use_container_width=True)
 
 # --- Error message ---
 if st.session_state.error_msg:
@@ -193,15 +239,17 @@ if submitted and address:
             st.session_state.error_msg = f"주소를 찾을 수 없어요: {e}"
             st.rerun()
 
-    with st.spinner("그날 밤하늘을 기억하는 중..."):
-        try:
-            narrative = generate_night_description(
-                address=sky_data.context.address_display,
-                when=when_str,
-                visible_constellation_names=sky_data.visible_constellation_names,
-            )
-            st.session_state.narrative = narrative
-        except Exception:
-            pass  # Narrative failure should not block chart rendering
+    if st.session_state.sky_data is not None:
+        with st.spinner("그날 밤하늘을 기억하는 중..."):
+            try:
+                narrative = generate_night_description(
+                    address=st.session_state.sky_data.context.address_display,
+                    when=when_str,
+                    visible_constellation_names=st.session_state.sky_data.visible_constellation_names,
+                    theme=theme,
+                )
+                st.session_state.narrative = narrative
+            except Exception:
+                pass  # Narrative failure should not block chart rendering
 
     st.rerun()
