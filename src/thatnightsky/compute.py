@@ -1,4 +1,4 @@
-"""천체 계산 레이어 — geocoding, skyfield 계산, 별자리 데이터 로드."""
+"""Astronomy computation layer — geocoding, skyfield calculations, and constellation data loading."""
 
 import os
 from datetime import datetime
@@ -30,11 +30,11 @@ with _loader.open("hip_main.dat") as f:
 
 
 class GeocodingError(Exception):
-    """vworld 지오코더 호출 실패."""
+    """vworld geocoder call failure."""
 
 
 def _geocode_with_type(address: str, addr_type: str) -> dict | None:
-    """vworld API 단일 호출. NOT_FOUND면 None, ERROR면 예외."""
+    """Single vworld API call. Returns None on NOT_FOUND, raises on ERROR."""
     params = {
         "service": "address",
         "request": "getCoord",
@@ -57,23 +57,23 @@ def _geocode_with_type(address: str, addr_type: str) -> dict | None:
 
 
 def geocode_address(address: str, when: str) -> ObserverContext:
-    """주소 문자열과 시각을 받아 ObserverContext를 반환한다.
+    """Resolve an address string and time string to an ObserverContext.
 
-    ROAD 타입으로 먼저 시도하고 NOT_FOUND면 PARCEL로 재시도한다.
+    Tries ROAD type first; falls back to PARCEL on NOT_FOUND.
 
     Args:
-        address: 한국어 주소 원문.
-        when: "YYYY-MM-DD HH:MM" 형식의 로컬 시각 문자열.
+        address: Korean address string.
+        when: Local time string in "YYYY-MM-DD HH:MM" format.
 
     Returns:
-        위경도, UTC datetime, 정규화 주소를 담은 ObserverContext.
+        ObserverContext containing lat/lng, UTC datetime, and normalized address.
 
     Raises:
-        GeocodingError: API 에러 또는 주소를 찾지 못한 경우.
+        GeocodingError: On API error or when address cannot be found.
     """
     data = _geocode_with_type(address, "ROAD") or _geocode_with_type(address, "PARCEL")
     if data is None:
-        raise GeocodingError(f"주소를 찾을 수 없습니다: {address}")
+        raise GeocodingError(f"Address not found: {address}")
 
     point = data["result"]["point"]
     lng = float(point["x"])
@@ -83,7 +83,7 @@ def geocode_address(address: str, when: str) -> ObserverContext:
     dt = datetime.strptime(when, "%Y-%m-%d %H:%M")
     tz_str = _tf.timezone_at(lat=lat, lng=lng)
     if tz_str is None:
-        raise GeocodingError(f"timezone을 찾을 수 없습니다: lat={lat}, lng={lng}")
+        raise GeocodingError(f"Timezone not found: lat={lat}, lng={lng}")
     local_tz = timezone(tz_str)
     utc_dt = local_tz.localize(dt, is_dst=None).astimezone(utc)
 
@@ -96,14 +96,14 @@ def compute_sky_data(
     context: ObserverContext,
     limiting_magnitude: float = 6.5,
 ) -> SkyData:
-    """skyfield로 천체 위치를 계산하고 SkyData를 반환한다.
+    """Compute celestial positions using skyfield and return a SkyData object.
 
     Args:
-        context: geocoding 결과 (위경도, UTC datetime).
-        limiting_magnitude: 표시할 최대 등급 (기본 6.5).
+        context: Geocoding result (lat/lng, UTC datetime).
+        limiting_magnitude: Maximum magnitude to include (default 6.5).
 
     Returns:
-        별 목록과 별자리 선분을 담은 SkyData.
+        SkyData containing star list and constellation line segments.
     """
     ts = _loader.timescale()
     t = ts.from_datetime(context.utc_dt)
@@ -127,7 +127,7 @@ def compute_sky_data(
     star_positions = _earth.at(t).observe(Star.from_dataframe(stars_df))
     x_arr, y_arr = projection(star_positions)
 
-    # 고도/방위각: 지상 관측자(earth + latlon)로 observe해야 altaz() 사용 가능
+    # Altitude/azimuth: must observe from ground observer (earth + latlon) to use altaz()
     apparent = ground.at(t).observe(Star.from_dataframe(stars_df)).apparent()
     alt, az, _ = apparent.altaz()
 
@@ -165,13 +165,13 @@ def compute_sky_data(
 
 
 def load_constellation_lines() -> tuple[ConstellationLine, ...]:
-    """resources/constellationship.fab를 파싱하여 별자리 선분 목록을 반환한다.
+    """Parse resources/constellationship.fab and return constellation line segments.
 
-    파일 형식: ``IAU약자 선쌍수 HIP1 HIP2 HIP3 HIP4 ...``
-    연속된 HIP 번호 쌍이 하나의 선분을 이룬다.
+    File format: ``IAU_abbr line_pair_count HIP1 HIP2 HIP3 HIP4 ...``
+    Consecutive HIP number pairs form individual line segments.
 
     Returns:
-        ConstellationLine 튜플. hip_from → hip_to 방향 선분.
+        Tuple of ConstellationLine objects. Each is a hip_from → hip_to segment.
     """
     fab_path = _ROOT / "resources" / "constellationship.fab"
     lines: list[ConstellationLine] = []
@@ -190,14 +190,14 @@ def load_constellation_lines() -> tuple[ConstellationLine, ...]:
 
 
 def run(query: QueryInput, limiting_magnitude: float = 6.5) -> SkyData:
-    """QueryInput을 받아 SkyData를 반환하는 최상위 진입점.
+    """Top-level entry point: takes a QueryInput and returns a SkyData.
 
     Args:
-        query: 사용자 입력 (주소, 시각).
-        limiting_magnitude: 표시할 최대 등급.
+        query: User input (address, time string).
+        limiting_magnitude: Maximum magnitude to include.
 
     Returns:
-        계산 완료된 SkyData.
+        Fully computed SkyData.
     """
     context = geocode_address(query.address, query.when)
     return compute_sky_data(context, limiting_magnitude)

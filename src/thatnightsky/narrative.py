@@ -1,4 +1,4 @@
-"""Claude API를 이용한 감성 텍스트 생성."""
+"""Poetic night-sky narrative generation using the Claude API."""
 
 import os
 
@@ -10,15 +10,15 @@ def generate_night_description(
     when: str,
     visible_constellation_names: tuple[str, ...],
 ) -> str:
-    """그날 밤하늘에 대한 감성 텍스트를 생성한다.
+    """Generate a poetic Korean narrative about the night sky.
 
     Args:
-        address: 장소명 (지오코더 정규화 주소 또는 입력 원문).
-        when: 날짜/시각 문자열 ("YYYY-MM-DD HH:MM").
-        visible_constellation_names: 해당 밤 보이는 별자리 IAU 약자 목록.
+        address: Location name (normalized geocoder address or raw input).
+        when: Date/time string ("YYYY-MM-DD HH:MM").
+        visible_constellation_names: IAU abbreviations of constellations visible that night.
 
     Returns:
-        한국어 한 문단 감성 텍스트.
+        A single Korean paragraph of poetic prose.
     """
     constellations_str = (
         ", ".join(visible_constellation_names[:10])

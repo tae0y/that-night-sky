@@ -1,7 +1,7 @@
-"""Plotly 2D 인터랙티브 별자리 지도 렌더러.
+"""Plotly 2D interactive star chart renderer.
 
-skyfield stereographic 투영 결과(x, y)를 그대로 사용한다.
-휠 줌 + 드래그 패닝으로 하늘을 둘러볼 수 있다.
+Uses skyfield stereographic projection output (x, y) directly.
+Supports wheel zoom and drag panning to explore the sky.
 """
 
 import numpy as np
@@ -15,21 +15,21 @@ _LINE_COLOR = "#7ec8e3"
 
 
 def render_plotly_chart(sky_data: SkyData) -> go.Figure:
-    """SkyData를 Plotly 2D 인터랙티브 별자리 지도로 렌더링한다.
+    """Render SkyData as a Plotly 2D interactive star chart.
 
-    지평선 위 별(alt >= 0)만 표시하고 별자리 선분을 오버레이한다.
-    휠로 줌인/줌아웃, 드래그로 패닝(둘러보기) 가능.
-    투영: skyfield stereographic (등각, 별자리 형태 보존).
+    Only stars above the horizon (alt >= 0) are shown, with constellation
+    lines overlaid. Wheel zoom and drag panning are enabled.
+    Projection: skyfield stereographic (conformal, preserves constellation shapes).
 
     Args:
-        sky_data: 계산 완료된 천체 데이터.
+        sky_data: Fully computed celestial data.
 
     Returns:
-        Plotly Figure 객체.
+        Plotly Figure object.
     """
     visible = [s for s in sky_data.stars if s.alt_deg >= 0]
 
-    # --- 별 크기: 등급 → 마커 크기 ---
+    # Star size: magnitude → marker size
     mags = np.array([s.magnitude for s in visible])
     sizes = np.clip(6 - mags, 1, 8)
 
@@ -50,7 +50,7 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
         name="stars",
     )
 
-    # --- 별자리 선분: None 구분 방식 단일 trace ---
+    # Constellation lines: single trace using None separators
     hip_to_xy: dict[int, tuple[float, float]] = {s.hip: (s.x, s.y) for s in visible}
     lx: list[float | None] = []
     ly: list[float | None] = []
@@ -73,8 +73,8 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
 
     fig = go.Figure(data=[line_trace, star_trace])
 
-    # use_container_width=False + CSS 정사각형 컨테이너 환경에서 동작.
-    # width/height는 기준점이며 CSS가 최종 크기를 결정.
+    # Works with use_container_width=False + CSS square container.
+    # width/height are reference values; CSS controls actual size.
     fig.update_layout(
         paper_bgcolor=_BG,
         plot_bgcolor=_BG,
@@ -97,7 +97,7 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
             autorange=False,
             fixedrange=False,
         ),
-        # 지평선 원: 데이터 좌표 기반 (scaleanchor로 정원 보장)
+        # Horizon circle: data-coordinate based (scaleanchor ensures perfect circle)
         shapes=[
             dict(
                 type="circle",
@@ -113,8 +113,8 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
         ],
     )
 
-    # scrollZoom을 Figure 기본 config로 설정
-    # st.plotly_chart 호출 시에도 config={"scrollZoom": True} 필요
+    # scrollZoom set as Figure default config
+    # st.plotly_chart call also requires config={"scrollZoom": True}
     fig._config = {"scrollZoom": True, "displayModeBar": False}  # type: ignore[attr-defined]
 
     return fig

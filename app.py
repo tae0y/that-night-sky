@@ -1,4 +1,4 @@
-"""ThatNightSky — 그날 밤하늘 Streamlit 앱."""
+"""ThatNightSky — Streamlit app for the night sky on a given date."""
 
 from dotenv import load_dotenv
 
@@ -18,28 +18,28 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- 어두운 풀스크린 테마 CSS ---
+# --- Dark fullscreen theme CSS ---
 st.markdown(
     """
     <style>
-    /* 전체 배경 */
+    /* Full background */
     html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] {
         background-color: #050a1a !important;
     }
-    /* 헤더/툴바 숨김 */
+    /* Hide header/toolbar */
     [data-testid="stHeader"], [data-testid="stToolbar"] {
         display: none !important;
     }
-    /* 사이드바 배경 */
+    /* Sidebar background */
     [data-testid="stSidebar"] {
         background-color: #050a1a !important;
     }
-    /* 메인 블록 패딩 제거 + 하단 input bar 높이만큼 여백 */
+    /* Remove main block padding + bottom margin for input bar height */
     [data-testid="stMainBlockContainer"] {
         padding-top: 0 !important;
         padding-bottom: 7rem !important;
     }
-    /* input bar: stLayoutWrapper(columns 래퍼)를 하단에 고정 */
+    /* Input bar: fix stLayoutWrapper (columns wrapper) to bottom */
     [data-testid="stLayoutWrapper"] {
         position: fixed !important;
         bottom: 0 !important;
@@ -50,7 +50,7 @@ st.markdown(
         padding: 0.8rem 1.6rem 1.2rem !important;
         border-top: 1px solid rgba(255,255,255,0.08) !important;
     }
-    /* 하단 오버레이 공통 */
+    /* Bottom overlay common styles */
     .overlay-box {
         background: rgba(0, 0, 0, 0.65);
         border-radius: 12px;
@@ -59,7 +59,7 @@ st.markdown(
         font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
         margin-bottom: 0.5rem;
     }
-    /* 입력 필드 */
+    /* Input fields */
     [data-testid="stTextInput"] input,
     [data-testid="stDateInput"] input,
     [data-testid="stTimeInput"] input {
@@ -68,7 +68,7 @@ st.markdown(
         border: 1px solid rgba(255,255,255,0.3) !important;
         border-radius: 6px !important;
     }
-    /* 버튼 */
+    /* Button */
     [data-testid="stButton"] button {
         background-color: rgba(126, 200, 227, 0.2) !important;
         color: #7ec8e3 !important;
@@ -79,21 +79,21 @@ st.markdown(
     [data-testid="stButton"] button:hover {
         background-color: rgba(126, 200, 227, 0.35) !important;
     }
-    /* 레이블 */
+    /* Labels */
     label, [data-testid="stWidgetLabel"] p {
         color: #aaaaaa !important;
         font-size: 0.85rem !important;
     }
-    /* 구분선 */
+    /* Divider */
     hr { border-color: rgba(255,255,255,0.1) !important; }
-    /* 감성 텍스트 */
+    /* Narrative text */
     .narrative-text {
         color: #d0d8e8;
         font-size: 1.05rem;
         line-height: 1.8;
         font-style: italic;
     }
-    /* 차트: 화면 폭 전체, 하단을 input bar 위 30px에 고정 */
+    /* Chart: full viewport width, fixed 30px above input bar */
     [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
         position: fixed !important;
         left: 0 !important;
@@ -110,7 +110,7 @@ st.markdown(
         height: 100% !important;
         overflow: visible !important;
     }
-    /* Plotly 내부 div 계층 전체 채움 */
+    /* Fill all inner Plotly div layers */
     [data-testid="stPlotlyChart"] > div,
     [data-testid="stPlotlyChart"] .js-plotly-plot,
     [data-testid="stPlotlyChart"] .plotly,
@@ -125,7 +125,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- 세션 상태 초기화 ---
+# --- Session state initialization ---
 if "sky_data" not in st.session_state:
     st.session_state.sky_data = None
 if "narrative" not in st.session_state:
@@ -133,7 +133,7 @@ if "narrative" not in st.session_state:
 if "error_msg" not in st.session_state:
     st.session_state.error_msg = None
 
-# --- 차트 영역 ---
+# --- Chart area ---
 chart_placeholder = st.empty()
 
 if st.session_state.sky_data is not None:
@@ -150,7 +150,7 @@ else:
         unsafe_allow_html=True,
     )
 
-# --- 하단 input (CSS로 fixed 처리) ---
+# --- Bottom input bar (fixed via CSS) ---
 col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
 with col1:
     address = st.text_input("장소", placeholder="예: 부산광역시 가야동", label_visibility="visible")
@@ -163,7 +163,7 @@ with col4:
     st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
     submitted = st.button("✦ 밤하늘 보기", use_container_width=True)
 
-# --- 오류 메시지 ---
+# --- Error message ---
 if st.session_state.error_msg:
     st.markdown(
         f"<div class='overlay-box' style='border:1px solid #ff6b6b; color:#ff9999;'>"
@@ -171,14 +171,14 @@ if st.session_state.error_msg:
         unsafe_allow_html=True,
     )
 
-# --- 감성 텍스트 ---
+# --- Narrative text ---
 if st.session_state.narrative:
     st.markdown(
         f"<div class='overlay-box'><p class='narrative-text'>{st.session_state.narrative}</p></div>",
         unsafe_allow_html=True,
     )
 
-# --- 제출 처리 ---
+# --- Form submission handler ---
 if submitted and address:
     when_str = f"{date_val.strftime('%Y-%m-%d')} {time_val.strftime('%H:%M')}"
     st.session_state.error_msg = None
@@ -201,6 +201,6 @@ if submitted and address:
             )
             st.session_state.narrative = narrative
         except Exception:
-            pass  # 감성 텍스트 실패는 차트 표시를 막지 않음
+            pass  # Narrative failure should not block chart rendering
 
     st.rerun()

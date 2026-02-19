@@ -1,4 +1,4 @@
-"""matplotlib 정적 PNG 렌더러."""
+"""Matplotlib static PNG renderer."""
 
 from pathlib import Path
 
@@ -13,14 +13,14 @@ _ROOT = Path(__file__).parent.parent.parent.parent
 
 
 def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
-    """SkyData를 matplotlib 정적 이미지로 렌더링한다.
+    """Render SkyData as a static matplotlib image.
 
     Args:
-        sky_data: 계산 완료된 천체 데이터.
-        chart_size: 출력 이미지 크기 (인치).
+        sky_data: Fully computed celestial data.
+        chart_size: Output image size in inches.
 
     Returns:
-        matplotlib Figure 객체.
+        matplotlib Figure object.
     """
     fig, ax = plt.subplots(figsize=(chart_size, chart_size))
     fig.patch.set_facecolor("black")
@@ -59,14 +59,14 @@ def render_static_chart(sky_data: SkyData, chart_size: int = 10) -> Figure:
 
 
 def save_static_chart(sky_data: SkyData, output_path: Path | None = None) -> Path:
-    """SkyData를 PNG 파일로 저장한다.
+    """Save SkyData as a PNG file.
 
     Args:
-        sky_data: 계산 완료된 천체 데이터.
-        output_path: 저장 경로. None이면 results/ 아래 자동 생성.
+        sky_data: Fully computed celestial data.
+        output_path: Destination path. Auto-generated under results/ if None.
 
     Returns:
-        저장된 파일 경로.
+        Path to the saved file.
     """
     if output_path is None:
         ctx = sky_data.context
