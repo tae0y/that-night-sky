@@ -200,6 +200,7 @@ with col4:
         "이 날의 의미",
         placeholder="예: 생일, 첫 만남, 기일",
         label_visibility="visible",
+        max_chars=20,
     )
 with col5:
     st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
