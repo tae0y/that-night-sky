@@ -28,13 +28,14 @@ ANTHROPIC_API_KEY=...    # Claude API (used for narrative text generation)
 
 `src/thatnightsky/` contains all code including the Streamlit entry point (`app.py`).
 
-Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.render_*()` → Plotly Figure
+Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.render_*()` → HTML string (SVG+JS)
 
 **`models.py`** — Immutable dataclasses defining layer boundaries:
 - `QueryInput`: Raw user input (address, time string)
 - `ObserverContext`: Geocoding result (lat/lng, UTC datetime)
 - `StarRecord`: Single star's coordinates + projection output
-- `ConstellationLine`: Constellation line segment (HIP pair)
+- `ConstellationLine`: Constellation line segment (HIP pair + IAU name)
+- `ConstellationPosition`: Brightness-weighted mean az/alt for a single constellation (used for narrative)
 - `SkyData`: Fully computed state passed to renderers
 
 **`compute.py`** — External API calls and astronomy computation:
@@ -94,6 +95,7 @@ No automated tests exist in this project. The pre-commit hooks (ruff, pyright, b
 - `error_msg`: `str | None` — shown when geocoding fails
 - `privacy_agreed`: `bool` — controls the one-time privacy dialog
 - `narrative_count`: `int` — tracks Claude API calls per session; capped at `_MAX_NARRATIVES_PER_SESSION = 3`
+- `input_open`: `bool` — toggles the bottom input panel (mobile collapsed state)
 
 ## Dependency Management
 
