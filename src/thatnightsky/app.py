@@ -291,7 +291,7 @@ else:
             st.session_state.sky_data = sky_data
         except GeocodingError as e:
             loading_placeholder.empty()
-            st.session_state.error_msg = f"주소를 찾을 수 없어요: {e}"
+            st.session_state.error_msg = f"주소를 찾을 수 없어요. 띄어쓰기를 포함해서 입력해보세요. ({e})"
             st.rerun()
 
         if st.session_state.sky_data is not None:
@@ -321,7 +321,9 @@ else:
 # --- Error message ---
 if st.session_state.error_msg:
     st.markdown(
-        f"<div class='overlay-box' style='border:1px solid #ff6b6b; color:#ff9999;'>"
+        f"<div class='overlay-box' style='"
+        f"position:fixed; bottom:var(--input-h,3rem); left:0; right:0; z-index:51;"
+        f"border:1px solid #ff6b6b; color:#ff9999;'>"
         f"{st.session_state.error_msg}</div>",
         unsafe_allow_html=True,
     )

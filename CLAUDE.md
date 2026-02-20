@@ -49,7 +49,9 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
 - `_IAU_TO_KO`: IAU abbreviation → Korean name mapping dict (e.g. `"Ori"` → `"오리온"`); up to 10 visible constellations passed to the prompt
 
-**`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart; the only renderer used by the Streamlit app. Only stars with `alt_deg >= 0` are shown. Horizon is drawn as a data-coordinate circle; CSS controls actual canvas size (not Plotly's width/height)
+**`renderers/svg_2d.py`** — Primary renderer used by the Streamlit app. Produces a self-contained HTML string (SVG + JS) embedded via `st.components.v1.html()`. Uses `viewBox="-1 0 2 1"` with CSS width/height 100% for browser-native scaling — no Plotly relayout hacks. Only stars with `alt_deg >= 0` are shown.
+
+**`renderers/plotly_2d.py`** — Plotly-based 2D interactive chart renderer; no longer used by the Streamlit app (superseded by `svg_2d.py`). Horizon is drawn as a data-coordinate circle; CSS controls canvas size.
 
 **`renderers/static.py`** — Matplotlib static PNG renderer; used only by `starchart.py` (legacy), not by the Streamlit app
 
