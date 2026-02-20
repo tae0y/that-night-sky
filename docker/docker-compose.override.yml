@@ -2,8 +2,3 @@ services:
   sky:
     ports:
       - "8501:8501"
-
-networks:
-  caddy_net:
-    external: false
-    name: thatnightsky_local

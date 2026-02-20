@@ -42,5 +42,5 @@ Use `docker-compose.override.yml` together with the base file. The override expo
 
 ## Production deployment
 
-For production, configure a reverse proxy (e.g. Caddy or Nginx) in front of the container.
-Add a reverse proxy block pointing to `localhost:8501` in your server configuration.
+For internet-facing deployments, use Cloudflare Tunnel instead of exposing ports directly.
+See [setup-cloudflare.md](setup-cloudflare.md) for the full setup.

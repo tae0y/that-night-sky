@@ -6,8 +6,10 @@ services:
       context: ..
       dockerfile: docker/Dockerfile
     env_file: ../.env
+    expose:
+      - "8501"
     networks:
-      - caddy_net
+      - internal
     restart: unless-stopped
     logging:
       driver: json-file
@@ -21,8 +23,18 @@ services:
       start_period: 15s
       retries: 3
 
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - internal
+    restart: unless-stopped
+    depends_on:
+      sky:
+        condition: service_healthy
+
 networks:
-  caddy_net:
-    # real-estate-mcp 프로젝트(name: real-estate-mcp)의 internal 네트워크
-    external: true
-    name: real-estate-mcp_internal
+  internal:
+    driver: bridge
