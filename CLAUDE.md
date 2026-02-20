@@ -42,8 +42,11 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - Computes star positions using skyfield + stereographic projection
 - Parses `resources/constellationship.fab` for constellation line segments
 - Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial cost; incurred once per Streamlit process start, not per re-run)
+- `_ROOT` is resolved as `Path(__file__).parent.parent.parent` (i.e., repo root)
+- Public functions: `run()` (top-level), `geocode_address()`, `compute_sky_data()`, `load_constellation_lines()` — all callable independently
 
 **`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
+- `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
 
 **`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart; the only renderer used by the Streamlit app
 
@@ -75,6 +78,18 @@ Run manually:
 pre-commit run --all-files
 pre-commit run pip-audit --hook-stage manual
 ```
+
+## Tests
+
+No automated tests exist in this project. The pre-commit hooks (ruff, pyright, bandit) are the primary quality gate.
+
+## Streamlit Session State
+
+`app.py` stores all inter-run state in `st.session_state`:
+- `sky_data`: `SkyData | None` — computed on form submit, persists across reruns
+- `narrative`: `str | None` — Claude-generated text; cleared on each new submit
+- `error_msg`: `str | None` — shown when geocoding fails
+- `privacy_agreed`: `bool` — controls the one-time privacy dialog
 
 ## Dependency Management
 
