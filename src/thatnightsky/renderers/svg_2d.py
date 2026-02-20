@@ -74,11 +74,6 @@ def render_svg_html(sky_data: SkyData) -> str:
     # viewBox="-1 0 2 1": center=(0,1), radius=1 → upper half arc only
     # SVG y-axis is top-down, so y=1 is the bottom edge of the viewBox.
     horizon_path = "M -1,1 A 1,1 0 0 1 1,1"
-    # Below-horizon overlay: fill the viewBox rect minus the semicircle interior.
-    # evenodd rule: outer rect (CW) ∪ inner arc (CCW) → only the ring outside the arc is filled.
-    # Outer rect: top-left → top-right → bottom-right → bottom-left (clockwise)
-    # Inner arc: right → left (counter-clockwise, sweep=0)
-    horizon_overlay_path = "M -1,0 L 1,0 L 1,1 L -1,1 Z M 1,1 A 1,1 0 0 0 -1,1 Z"
 
     lines_svg = "\n    ".join(line_parts)
     stars_svg = "\n    ".join(star_parts)
@@ -135,11 +130,13 @@ svg#sky.grabbing {{
      preserveAspectRatio="xMidYMax meet">
   <rect x="-1" y="0" width="2" height="1" fill="{_BG}"/>
   <g id="scene">
-    <g id="lines">
-      {lines_svg}
-    </g>
-    <g id="stars">
-      {stars_svg}
+    <g id="rotating">
+      <g id="lines">
+        {lines_svg}
+      </g>
+      <g id="stars">
+        {stars_svg}
+      </g>
     </g>
     <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.004"/>
   </g>
@@ -176,6 +173,7 @@ svg#sky.grabbing {{
   // ── pan + zoom ───────────────────────────────────────────────
   var svg = document.getElementById('sky');
   var scene = document.getElementById('scene');
+  var rotating = document.getElementById('rotating');
   var resetBtn = document.getElementById('reset-btn');
 
   // transform state in SVG data-units
@@ -186,6 +184,24 @@ svg#sky.grabbing {{
     var changed = (tx !== 0 || ty !== 0 || scale !== 1);
     resetBtn.style.display = changed ? 'block' : 'none';
   }}
+
+  // ── auto-rotation ────────────────────────────────────────────
+  // Rotate stars+lines around the horizon semicircle centre (SVG coords: cx=0, cy=1).
+  // One full rotation every 10 minutes (600 seconds).
+  var DEG_PER_MS = 360 / (600 * 1000);
+  var rotAngle = 0;
+  var lastTs = null;
+
+  function rotationLoop(ts) {{
+    if (lastTs !== null) {{
+      rotAngle += (ts - lastTs) * DEG_PER_MS;
+      if (rotAngle >= 360) rotAngle -= 360;
+    }}
+    lastTs = ts;
+    rotating.setAttribute('transform', 'rotate(' + rotAngle + ',0,1)');
+    requestAnimationFrame(rotationLoop);
+  }}
+  requestAnimationFrame(rotationLoop);
 
   // convert mouse/touch clientX/Y → SVG data-unit coords
   function clientToSVG(clientX, clientY) {{
