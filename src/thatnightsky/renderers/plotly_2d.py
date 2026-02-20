@@ -33,8 +33,10 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
     mags = np.array([s.magnitude for s in visible])
     sizes = np.clip(6 - mags, 1, 8)
 
+    # figure는 2:1 비율(xrange 2, yrange 1), scaleanchor 없음
+    # 별자리 모양 왜곡 방지: y를 2배 스케일해서 시각적 1:1 비율 복원
     x_vals = [s.x for s in visible]
-    y_vals = [s.y for s in visible]
+    y_vals = [s.y * 2 for s in visible]
 
     star_trace = go.Scatter(
         x=x_vals,
@@ -51,7 +53,7 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
     )
 
     # Constellation lines: single trace using None separators
-    hip_to_xy: dict[int, tuple[float, float]] = {s.hip: (s.x, s.y) for s in visible}
+    hip_to_xy: dict[int, tuple[float, float]] = {s.hip: (s.x, s.y * 2) for s in visible}
     lx: list[float | None] = []
     ly: list[float | None] = []
     for line in sky_data.constellation_lines:
@@ -80,33 +82,30 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
         plot_bgcolor=_BG,
         showlegend=False,
         margin=dict(l=0, r=0, t=0, b=0),
-        width=1200,
-        height=1200,
+        width=800,
+        height=400,
         dragmode="pan",
         xaxis=dict(
             visible=False,
             range=[-1.0, 1.0],
             autorange=False,
             fixedrange=False,
-            scaleanchor="y",
-            scaleratio=1,
         ),
         yaxis=dict(
             visible=False,
-            range=[-1.0, 1.0],
+            range=[0.0, 2.0],
             autorange=False,
             fixedrange=False,
         ),
-        # Horizon circle: data-coordinate based (scaleanchor ensures perfect circle)
+        # Horizon arc: paper 좌표 SVG path (scaleanchor 없이 항상 정확한 반원)
+        # paper 좌표 x=0~1, y=0~1 (데이터 좌표와 무관)
+        # 반원: 좌하(0,0) → 우하(1,0), 호 중심=(0.5,0), 반지름=0.5
         shapes=[
             dict(
-                type="circle",
-                xref="x",
-                yref="y",
-                x0=-1,
-                y0=-1,
-                x1=1,
-                y1=1,
+                type="path",
+                xref="paper",
+                yref="paper",
+                path="M 0,0 A 0.5,0.5 0 0 1 1,0",
                 line=dict(color="#334466", width=1),
                 fillcolor="rgba(0,0,0,0)",
             )

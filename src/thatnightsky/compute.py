@@ -1,6 +1,8 @@
 """Astronomy computation layer — geocoding, skyfield calculations, and constellation data loading."""
 
+import math
 import os
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from timezonefinder import TimezoneFinder
 
 from thatnightsky.models import (
     ConstellationLine,
+    ConstellationPosition,
     ObserverContext,
     QueryInput,
     SkyData,
@@ -154,14 +157,55 @@ def compute_sky_data(
         if line.hip_from in visible_hip_set and line.hip_to in visible_hip_set
     )
     visible_names = tuple(dict.fromkeys(line.name for line in visible_lines))
+    constellation_positions = _compute_constellation_positions(records, visible_names)
 
     return SkyData(
         context=context,
         stars=tuple(records),
         constellation_lines=visible_lines,
         limiting_magnitude=limiting_magnitude,
-        visible_constellation_names=visible_names,
+        constellation_positions=constellation_positions,
     )
+
+
+def _compute_constellation_positions(
+    records: list[StarRecord],
+    visible_names: tuple[str, ...],
+) -> tuple[ConstellationPosition, ...]:
+    """Compute brightness-weighted mean az/alt for each visible constellation.
+
+    Azimuth uses circular mean (sin/cos components) to handle the 0°/360° wrap.
+    Only stars with alt_deg >= 0 are included.
+    """
+    hip_to_record: dict[int, StarRecord] = {r.hip: r for r in records if r.alt_deg >= 0}
+    all_lines = load_constellation_lines()
+
+    # Group stars by constellation via line segments
+    constellation_stars: dict[str, set[int]] = defaultdict(set)
+    for line in all_lines:
+        if line.name in visible_names:
+            if line.hip_from in hip_to_record:
+                constellation_stars[line.name].add(line.hip_from)
+            if line.hip_to in hip_to_record:
+                constellation_stars[line.name].add(line.hip_to)
+
+    positions: list[ConstellationPosition] = []
+    for name in visible_names:
+        hips = constellation_stars.get(name)
+        if not hips:
+            continue
+        stars = [hip_to_record[h] for h in hips]
+        # Brightness weight: dimmer magnitude = brighter star; weight = 1 / (mag + offset)
+        weights = [1.0 / (s.magnitude + 3.0) for s in stars]
+        total_w = sum(weights)
+        # Circular mean for azimuth
+        sin_sum = sum(w * math.sin(math.radians(s.az_deg)) for w, s in zip(weights, stars))
+        cos_sum = sum(w * math.cos(math.radians(s.az_deg)) for w, s in zip(weights, stars))
+        az_mean = math.degrees(math.atan2(sin_sum / total_w, cos_sum / total_w)) % 360
+        alt_mean = sum(w * s.alt_deg for w, s in zip(weights, stars)) / total_w
+        positions.append(ConstellationPosition(name=name, az_deg=round(az_mean, 1), alt_deg=round(alt_mean, 1)))
+
+    return tuple(positions)
 
 
 def load_constellation_lines() -> tuple[ConstellationLine, ...]:

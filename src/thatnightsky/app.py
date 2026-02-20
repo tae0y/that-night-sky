@@ -1,17 +1,19 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
 import datetime
+import random
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from thatnightsky.compute import GeocodingError, run
 from thatnightsky.models import QueryInput
 from thatnightsky.narrative import generate_night_description
-from thatnightsky.renderers.plotly_2d import render_plotly_chart
+from thatnightsky.renderers.svg_2d import render_svg_html
 
 st.set_page_config(
     page_title="그날 밤하늘",
@@ -20,7 +22,32 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# --- Dark fullscreen theme CSS ---
+# --- Session state initialization ---
+if "sky_data" not in st.session_state:
+    st.session_state.sky_data = None
+if "narrative" not in st.session_state:
+    st.session_state.narrative = None
+if "error_msg" not in st.session_state:
+    st.session_state.error_msg = None
+if "privacy_agreed" not in st.session_state:
+    st.session_state.privacy_agreed = False
+if "narrative_count" not in st.session_state:
+    st.session_state.narrative_count = 0
+if "input_open" not in st.session_state:
+    st.session_state.input_open = True
+
+_MAX_NARRATIVES_PER_SESSION = 3
+
+_SAMPLE_INPUTS = [
+    {"address": "서울종로", "date": datetime.date(1900, 1, 1), "time": datetime.time(6, 0), "theme": "생일"},
+    {"address": "부산가야동", "date": datetime.date(2000, 10, 1), "time": datetime.time(20, 0), "theme": "첫만남"},
+    {"address": "경기김포", "date": datetime.date(2022, 11, 25), "time": datetime.time(5, 0), "theme": "아버지기일"},
+]
+
+if "default_input" not in st.session_state:
+    st.session_state.default_input = random.choice(_SAMPLE_INPUTS)
+
+# --- Dark fullscreen theme CSS (static) ---
 st.markdown(
     """
     <style>
@@ -36,12 +63,16 @@ st.markdown(
     [data-testid="stSidebar"] {
         background-color: #050a1a !important;
     }
-    /* Remove main block padding + bottom margin for input bar height */
+    /* Remove main block padding, allow chart to overflow */
     [data-testid="stMainBlockContainer"] {
         padding-top: 0 !important;
-        padding-bottom: 7rem !important;
+        padding-bottom: 0 !important;
+        overflow: visible !important;
     }
-    /* Input bar: fix stLayoutWrapper (columns wrapper) to bottom — only when text input present */
+    [data-testid="stMain"] {
+        overflow: visible !important;
+    }
+    /* Input bar: fix stLayoutWrapper to bottom */
     [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) {
         position: fixed !important;
         bottom: 0 !important;
@@ -51,6 +82,28 @@ st.markdown(
         background: rgba(5, 10, 26, 0.95) !important;
         padding: 0.8rem 1.6rem 1.2rem !important;
         border-top: 1px solid rgba(255,255,255,0.08) !important;
+    }
+    /* Desktop: horizontal layout, columns stay in one row */
+    @media (min-width: 769px) {
+        [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) [data-testid="stHorizontalBlock"] {
+            flex-wrap: nowrap !important;
+        }
+        [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) [data-testid="stColumn"] {
+            min-width: 0 !important;
+            flex-shrink: 1 !important;
+        }
+    }
+    /* Mobile: vertical stacked layout */
+    @media (max-width: 768px) {
+        [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) [data-testid="stHorizontalBlock"] {
+            flex-direction: column !important;
+            gap: 0.2rem !important;
+        }
+        [data-testid="stLayoutWrapper"]:has([data-testid="stTextInput"]) [data-testid="stColumn"] {
+            width: 100% !important;
+            min-width: unset !important;
+            flex: unset !important;
+        }
     }
     /* Bottom overlay common styles */
     .overlay-box {
@@ -99,51 +152,51 @@ st.markdown(
     [data-testid="stElementContainer"]:has(.overlay-box) {
         all: unset !important;
     }
-    /* Chart: full viewport width, fixed 30px above input bar */
-    [data-testid="stElementContainer"]:has([data-testid="stPlotlyChart"]) {
+    /* Loading message: fixed center overlay */
+    @keyframes dots {
+        0%   { content: '.'; }
+        33%  { content: '. .'; }
+        66%  { content: '. . .'; }
+        100% { content: '.'; }
+    }
+    .loading-overlay {
         position: fixed !important;
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
+        z-index: 9999 !important;
+        background: rgba(5,10,26,0.95) !important;
+        border-radius: 12px !important;
+        padding: 1.6rem 3rem !important;
+        color: #e8e8e8 !important;
+        font-size: 1rem !important;
+        border: none !important;
+        min-width: 200px !important;
+        text-align: center !important;
+        pointer-events: none !important;
+    }
+    .loading-overlay::after {
+        content: '.';
+        animation: dots 1.2s steps(1, end) infinite;
+    }
+    [data-testid="stElementContainer"]:has(.loading-overlay) {
+        all: unset !important;
+    }
+    /* Toggle-open button: fixed to bottom when input is closed */
+    .st-key-toggle_open {
+        position: fixed !important;
+        bottom: 0 !important;
         left: 0 !important;
         right: 0 !important;
-        bottom: calc(7rem + 30px - 50vw) !important;
-        width: 100vw !important;
-        height: 100vw !important;
-        z-index: 10 !important;
-        overflow: visible !important;
-    }
-    [data-testid="stFullScreenFrame"]:has([data-testid="stPlotlyChart"]),
-    [data-testid="stPlotlyChart"] {
-        width: 100% !important;
-        height: 100% !important;
-        overflow: visible !important;
-    }
-    /* Fill all inner Plotly div layers */
-    [data-testid="stPlotlyChart"] > div,
-    [data-testid="stPlotlyChart"] .js-plotly-plot,
-    [data-testid="stPlotlyChart"] .plotly,
-    [data-testid="stPlotlyChart"] .plot-container,
-    [data-testid="stPlotlyChart"] .svg-container {
-        width: 100% !important;
-        height: 100% !important;
-        background: #050a1a !important;
+        z-index: 101 !important;
+        background: rgba(5, 10, 26, 0.95) !important;
+        border-top: 1px solid rgba(255,255,255,0.08) !important;
+        padding: 0.5rem 1.6rem 0.8rem !important;
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
-
-# --- Session state initialization ---
-if "sky_data" not in st.session_state:
-    st.session_state.sky_data = None
-if "narrative" not in st.session_state:
-    st.session_state.narrative = None
-if "error_msg" not in st.session_state:
-    st.session_state.error_msg = None
-if "privacy_agreed" not in st.session_state:
-    st.session_state.privacy_agreed = False
-if "narrative_count" not in st.session_state:
-    st.session_state.narrative_count = 0
-
-_MAX_NARRATIVES_PER_SESSION = 3
 
 
 # --- Privacy notice (shown until agreed) ---
@@ -166,14 +219,15 @@ if not st.session_state.privacy_agreed:
 
 # --- Chart area ---
 chart_placeholder = st.empty()
+loading_placeholder = st.empty()
 
 if st.session_state.sky_data is not None:
-    fig = render_plotly_chart(st.session_state.sky_data)
-    chart_placeholder.plotly_chart(
-        fig,
-        use_container_width=False,
-        config={"scrollZoom": True, "displayModeBar": False},
-    )
+    svg_html = render_svg_html(st.session_state.sky_data)
+    chart_placeholder.empty()
+    # height=900: Streamlit이 요구하는 초기 iframe 높이(0이면 숨겨짐).
+    # JS가 iframe을 position:fixed + width=h*2로 재조정하여 뷰포트 꽉 채움.
+    # SVG는 visibility:hidden으로 시작해 JS 완료 후 visible — 깜빡임 방지.
+    components.html(svg_html, height=900, scrolling=False)
 else:
     chart_placeholder.markdown(
         "<div style='height:100vh; display:flex; align-items:center; justify-content:center;"
@@ -181,34 +235,88 @@ else:
         unsafe_allow_html=True,
     )
 
-# --- Bottom input bar (fixed via CSS) ---
-col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1.5])
-with col1:
-    address = st.text_input(
-        "장소", placeholder="예: 부산광역시 가야동", label_visibility="visible"
-    )
-with col2:
-    date_val = st.date_input(
-        "날짜",
-        value=datetime.date(1995, 1, 15),
-        min_value=datetime.date(1900, 1, 1),
-        max_value=datetime.date.today(),
-        label_visibility="visible",
-    )
-with col3:
-    time_val = st.time_input(
-        "시각", value=datetime.time(0, 0), label_visibility="visible", step=300
-    )
-with col4:
-    theme = st.text_input(
-        "이 날의 의미",
-        placeholder="예: 생일, 첫 만남, 기일",
-        label_visibility="visible",
-        max_chars=20,
-    )
-with col5:
-    st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
-    submitted = st.button("✦ 밤하늘보기", use_container_width=True)
+# --- Input panel ---
+# Mobile closed state: show toggle button only (input form hidden via CSS)
+# Mobile open state / Desktop: show full input form
+if not st.session_state.input_open:
+    if st.button("다시 입력하기", key="toggle_open", use_container_width=True):
+        st.session_state.input_open = True
+        st.rerun()
+else:
+    col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1.5])
+    with col1:
+        address = st.text_input(
+            "장소",
+            value=st.session_state.default_input["address"],
+            label_visibility="visible",
+        )
+    with col2:
+        date_val = st.date_input(
+            "날짜",
+            value=st.session_state.default_input["date"],
+            min_value=datetime.date(1900, 1, 1),
+            max_value=datetime.date.today(),
+            label_visibility="visible",
+        )
+    with col3:
+        time_val = st.time_input(
+            "시각",
+            value=st.session_state.default_input["time"],
+            label_visibility="visible",
+            step=3600,
+        )
+    with col4:
+        theme = st.text_input(
+            "이 날의 의미",
+            value=st.session_state.default_input["theme"],
+            label_visibility="visible",
+            max_chars=20,
+        )
+    with col5:
+        st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
+        submitted = st.button("✦ 밤하늘보기", use_container_width=True)
+
+    # --- Form submission handler ---
+    if submitted and address:
+        when_str = f"{date_val.strftime('%Y-%m-%d')} {time_val.strftime('%H:%M')}"
+        st.session_state.error_msg = None
+        st.session_state.narrative = None
+
+        loading_placeholder.markdown(
+            "<div class='loading-overlay'>✦ 밤하늘을 계산하는 중</div>",
+            unsafe_allow_html=True,
+        )
+        try:
+            sky_data = run(QueryInput(address=address, when=when_str))
+            st.session_state.sky_data = sky_data
+        except GeocodingError as e:
+            loading_placeholder.empty()
+            st.session_state.error_msg = f"주소를 찾을 수 없어요: {e}"
+            st.rerun()
+
+        if st.session_state.sky_data is not None:
+            if st.session_state.narrative_count >= _MAX_NARRATIVES_PER_SESSION:
+                st.session_state.narrative = "이 세션에서 최대 3회 이야기를 생성했어요. 새 탭에서 다시 시작할 수 있습니다."
+            else:
+                loading_placeholder.markdown(
+                    "<div class='loading-overlay'>✦ 그날 밤하늘을 기억하는 중</div>",
+                    unsafe_allow_html=True,
+                )
+                try:
+                    narrative = generate_night_description(
+                        address=st.session_state.sky_data.context.address_display,
+                        when=when_str,
+                        constellation_positions=st.session_state.sky_data.constellation_positions,
+                        theme=theme,
+                    )
+                    st.session_state.narrative = narrative
+                    st.session_state.narrative_count += 1
+                except Exception:
+                    st.session_state.narrative = "그날, 밤, 하늘입니다."
+
+            st.session_state.input_open = False
+
+        st.rerun()
 
 # --- Error message ---
 if st.session_state.error_msg:
@@ -223,17 +331,17 @@ if st.session_state.narrative:
     st.markdown(
         f"""<div class='overlay-box' style='
             position: fixed;
-            bottom: 7rem;
+            bottom: var(--input-h, 3rem);
             left: 0;
             right: 0;
             z-index: 50;
-            max-height: calc(1.8em * 3 + 2.4rem);
+            max-height: calc(1.8em * 4 + 2.4rem);
             overflow-y: auto;
             box-sizing: border-box;
             word-break: keep-all;
             overflow-wrap: break-word;
         '><p class='narrative-text' style='
-            width: 60%;
+            width: min(90%, 640px);
             margin: 0 auto;
             text-align: center;
             word-break: keep-all;
@@ -241,36 +349,3 @@ if st.session_state.narrative:
         '>{st.session_state.narrative}</p></div>""",
         unsafe_allow_html=True,
     )
-
-# --- Form submission handler ---
-if submitted and address:
-    when_str = f"{date_val.strftime('%Y-%m-%d')} {time_val.strftime('%H:%M')}"
-    st.session_state.error_msg = None
-    st.session_state.narrative = None
-
-    with st.spinner("밤하늘을 계산하는 중..."):
-        try:
-            sky_data = run(QueryInput(address=address, when=when_str))
-            st.session_state.sky_data = sky_data
-        except GeocodingError as e:
-            st.session_state.error_msg = f"주소를 찾을 수 없어요: {e}"
-            st.rerun()
-
-    if st.session_state.sky_data is not None:
-        if st.session_state.narrative_count >= _MAX_NARRATIVES_PER_SESSION:
-            st.session_state.narrative = "이 세션에서 최대 3회 이야기를 생성했어요. 새 탭에서 다시 시작할 수 있습니다."
-        else:
-            with st.spinner("그날 밤하늘을 기억하는 중..."):
-                try:
-                    narrative = generate_night_description(
-                        address=st.session_state.sky_data.context.address_display,
-                        when=when_str,
-                        visible_constellation_names=st.session_state.sky_data.visible_constellation_names,
-                        theme=theme,
-                    )
-                    st.session_state.narrative = narrative
-                    st.session_state.narrative_count += 1
-                except Exception:
-                    pass  # Narrative failure should not block chart rendering
-
-    st.rerun()

@@ -6,6 +6,8 @@ import unicodedata
 
 import anthropic
 
+from thatnightsky.models import ConstellationPosition
+
 _INJECTION_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"ignore\s+(all\s+)?previous", re.IGNORECASE),
     re.compile(r"(disregard|forget)\s+.*(instruction|rule|prompt)", re.IGNORECASE),
@@ -128,7 +130,7 @@ _IAU_TO_KO: dict[str, str] = {
 def generate_night_description(
     address: str,
     when: str,
-    visible_constellation_names: tuple[str, ...],
+    constellation_positions: tuple[ConstellationPosition, ...],
     theme: str = "",
 ) -> str:
     """Generate a poetic Korean narrative about the night sky.
@@ -136,7 +138,7 @@ def generate_night_description(
     Args:
         address: Location name (normalized geocoder address or raw input).
         when: Date/time string ("YYYY-MM-DD HH:MM").
-        visible_constellation_names: IAU abbreviations of constellations visible that night.
+        constellation_positions: Visible constellations with representative az/alt.
         theme: Optional occasion/theme (e.g. "생일", "기일", "첫 만남"). Empty string = model chooses.
 
     Returns:
@@ -144,9 +146,10 @@ def generate_night_description(
     """
     constellations_str = (
         ", ".join(
-            _IAU_TO_KO.get(name, name) for name in visible_constellation_names[:10]
+            f"{_IAU_TO_KO.get(p.name, p.name)}(방위:{p.az_deg:.0f}°/고도:{p.alt_deg:.0f}°)"
+            for p in constellation_positions[:10]
         )
-        if visible_constellation_names
+        if constellation_positions
         else "알 수 없음"
     )
 

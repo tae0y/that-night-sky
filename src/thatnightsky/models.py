@@ -46,6 +46,15 @@ class ConstellationLine:
 
 
 @dataclass(frozen=True)
+class ConstellationPosition:
+    """Representative sky position for a single constellation."""
+
+    name: str  # IAU abbreviation ("Ori", "UMa", etc.)
+    az_deg: float  # Brightness-weighted mean azimuth (0=N, 90=E, 180=S, 270=W)
+    alt_deg: float  # Brightness-weighted mean altitude (degrees)
+
+
+@dataclass(frozen=True)
 class SkyData:
     """The sole input to renderers. Fully computed state."""
 
@@ -53,4 +62,4 @@ class SkyData:
     stars: tuple[StarRecord, ...]  # After magnitude filter
     constellation_lines: tuple[ConstellationLine, ...]
     limiting_magnitude: float  # Magnitude filter threshold
-    visible_constellation_names: tuple[str, ...]  # Used for Claude narrative generation
+    constellation_positions: tuple[ConstellationPosition, ...]  # Used for Claude narrative generation
