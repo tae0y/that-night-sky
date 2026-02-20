@@ -39,9 +39,24 @@ if "input_open" not in st.session_state:
 _MAX_NARRATIVES_PER_SESSION = 3
 
 _SAMPLE_INPUTS = [
-    {"address": "서울종로", "date": datetime.date(1900, 1, 1), "time": datetime.time(6, 0), "theme": "생일"},
-    {"address": "부산가야동", "date": datetime.date(2000, 10, 1), "time": datetime.time(20, 0), "theme": "첫만남"},
-    {"address": "경기김포", "date": datetime.date(2022, 11, 25), "time": datetime.time(5, 0), "theme": "아버지기일"},
+    {
+        "address": "서울 종로",
+        "date": datetime.date(1900, 1, 1),
+        "time": datetime.time(6, 0),
+        "theme": "생일",
+    },
+    {
+        "address": "부산 가야동",
+        "date": datetime.date(2000, 10, 1),
+        "time": datetime.time(20, 0),
+        "theme": "첫만남",
+    },
+    {
+        "address": "경기 김포",
+        "date": datetime.date(2022, 11, 25),
+        "time": datetime.time(5, 0),
+        "theme": "아버지기일",
+    },
 ]
 
 if "default_input" not in st.session_state:
@@ -133,6 +148,13 @@ st.markdown(
     }
     [data-testid="stButton"] button:hover {
         background-color: rgba(126, 200, 227, 0.35) !important;
+    }
+    /* 밤하늘보기 버튼: 고정 너비 */
+    .st-key-submit_btn button {
+        width: 9rem !important;
+        min-width: unset !important;
+        max-width: unset !important;
+        white-space: nowrap !important;
     }
     /* Labels */
     label, [data-testid="stWidgetLabel"] p {
@@ -274,7 +296,7 @@ else:
         )
     with col5:
         st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
-        submitted = st.button("✦ 밤하늘보기", use_container_width=True)
+        submitted = st.button("✦ 밤하늘보기", key="submit_btn")
 
     # --- Form submission handler ---
     if submitted and address:
@@ -291,7 +313,9 @@ else:
             st.session_state.sky_data = sky_data
         except GeocodingError as e:
             loading_placeholder.empty()
-            st.session_state.error_msg = f"주소를 찾을 수 없어요. 띄어쓰기를 포함해서 입력해보세요. ({e})"
+            st.session_state.error_msg = (
+                f"주소를 찾을 수 없어요. 띄어쓰기를 포함해서 입력해보세요. ({e})"
+            )
             st.rerun()
 
         if st.session_state.sky_data is not None:
@@ -333,11 +357,11 @@ if st.session_state.narrative:
     st.markdown(
         f"""<div class='overlay-box' style='
             position: fixed;
-            bottom: var(--input-h, 3rem);
+            bottom: calc(var(--input-h, 3rem) + 1.9rem);
             left: 0;
             right: 0;
             z-index: 50;
-            max-height: calc(1.8em * 4 + 2.4rem);
+            max-height: calc((1.8em * 4 + 2.4rem) * 1.2);
             overflow-y: auto;
             box-sizing: border-box;
             word-break: keep-all;
