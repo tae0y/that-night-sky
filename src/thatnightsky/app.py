@@ -140,6 +140,10 @@ if "error_msg" not in st.session_state:
     st.session_state.error_msg = None
 if "privacy_agreed" not in st.session_state:
     st.session_state.privacy_agreed = False
+if "narrative_count" not in st.session_state:
+    st.session_state.narrative_count = 0
+
+_MAX_NARRATIVES_PER_SESSION = 3
 
 
 # --- Privacy notice (shown until agreed) ---
@@ -253,16 +257,20 @@ if submitted and address:
             st.rerun()
 
     if st.session_state.sky_data is not None:
-        with st.spinner("그날 밤하늘을 기억하는 중..."):
-            try:
-                narrative = generate_night_description(
-                    address=st.session_state.sky_data.context.address_display,
-                    when=when_str,
-                    visible_constellation_names=st.session_state.sky_data.visible_constellation_names,
-                    theme=theme,
-                )
-                st.session_state.narrative = narrative
-            except Exception:
-                pass  # Narrative failure should not block chart rendering
+        if st.session_state.narrative_count >= _MAX_NARRATIVES_PER_SESSION:
+            st.session_state.narrative = "이 세션에서 최대 3회 이야기를 생성했어요. 새 탭에서 다시 시작할 수 있습니다."
+        else:
+            with st.spinner("그날 밤하늘을 기억하는 중..."):
+                try:
+                    narrative = generate_night_description(
+                        address=st.session_state.sky_data.context.address_display,
+                        when=when_str,
+                        visible_constellation_names=st.session_state.sky_data.visible_constellation_names,
+                        theme=theme,
+                    )
+                    st.session_state.narrative = narrative
+                    st.session_state.narrative_count += 1
+                except Exception:
+                    pass  # Narrative failure should not block chart rendering
 
     st.rerun()

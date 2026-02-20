@@ -47,8 +47,9 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 
 **`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
 - `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
+- `_IAU_TO_KO`: IAU abbreviation → Korean name mapping dict (e.g. `"Ori"` → `"오리온"`); up to 10 visible constellations passed to the prompt
 
-**`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart; the only renderer used by the Streamlit app
+**`renderers/plotly_2d.py`** — Renders stereographic projection output (x, y) as a Plotly 2D interactive chart; the only renderer used by the Streamlit app. Only stars with `alt_deg >= 0` are shown. Horizon is drawn as a data-coordinate circle; CSS controls actual canvas size (not Plotly's width/height)
 
 **`renderers/static.py`** — Matplotlib static PNG renderer; used only by `starchart.py` (legacy), not by the Streamlit app
 
@@ -90,6 +91,7 @@ No automated tests exist in this project. The pre-commit hooks (ruff, pyright, b
 - `narrative`: `str | None` — Claude-generated text; cleared on each new submit
 - `error_msg`: `str | None` — shown when geocoding fails
 - `privacy_agreed`: `bool` — controls the one-time privacy dialog
+- `narrative_count`: `int` — tracks Claude API calls per session; capped at `_MAX_NARRATIVES_PER_SESSION = 3`
 
 ## Dependency Management
 

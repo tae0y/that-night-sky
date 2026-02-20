@@ -8,6 +8,7 @@ __except/*
 localdocs/
 
 .env
+.streamlit/secrets.toml
 
 *.download*
 
