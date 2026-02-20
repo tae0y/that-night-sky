@@ -35,6 +35,8 @@ if "narrative_count" not in st.session_state:
     st.session_state.narrative_count = 0
 if "input_open" not in st.session_state:
     st.session_state.input_open = True
+if "show_placeholder" not in st.session_state:
+    st.session_state.show_placeholder = True
 
 _MAX_NARRATIVES_PER_SESSION = 3
 
@@ -221,23 +223,33 @@ st.markdown(
 )
 
 
-# --- Privacy notice (shown until agreed) ---
-@st.dialog("개인정보 처리 고지")
-def _privacy_dialog() -> None:
-    st.write(
-        "입력한 날짜와 장소는 저장되지 않으며, 별자리 생성 목적으로만 AI(Anthropic Claude) API에 전송됩니다."
-    )
-    st.write("서버 운영 로그는 7일 후 자동 삭제됩니다.")
-    st.markdown(
-        "본 서비스는 [Anthropic의 데이터 처리 정책](https://www.anthropic.com/legal/privacy)을 따릅니다."
-    )
-    if st.button("확인", key="privacy_confirm", use_container_width=True):
-        st.session_state.privacy_agreed = True
-        st.rerun()
-
-
+# --- Privacy notice (blocks until agreed) ---
 if not st.session_state.privacy_agreed:
-    _privacy_dialog()
+    st.markdown("<div style='height: 25vh'></div>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 2, 1])
+    with col:
+        st.markdown(
+            """
+            <style>
+            .privacy-notice h3 { color: #ffffff; margin-bottom: 1rem; }
+            .privacy-notice p  { color: #cccccc; line-height: 1.7; margin-bottom: 0.6rem; font-size: 0.95rem; }
+            .privacy-notice small { color: #999999; font-size: 0.85rem; }
+            .privacy-notice a { color: #7ec8e3; }
+            </style>
+            <div class="privacy-notice">
+                <h3>개인정보 처리 고지</h3>
+                <p>입력한 정보는 서비스 제공을 위해 Anthropic에 전송되며,<br>별도로 저장되지 않습니다.</p>
+                <p>서버 운영 로그는 7일 후 자동 삭제됩니다.</p>
+                <small>본 서비스는 <a href="https://www.anthropic.com/legal/privacy" target="_blank">Anthropic의 데이터 처리 정책</a>을 따릅니다.</small>
+            </div>
+            <div style="height: 0.8rem"></div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if st.button("확인", key="privacy_confirm", use_container_width=True):
+            st.session_state.privacy_agreed = True
+            st.rerun()
+    st.stop()
 
 # --- Chart area ---
 chart_placeholder = st.empty()
@@ -250,7 +262,7 @@ if st.session_state.sky_data is not None:
     # JS가 iframe을 position:fixed + width=h*2로 재조정하여 뷰포트 꽉 채움.
     # SVG는 visibility:hidden으로 시작해 JS 완료 후 visible — 깜빡임 방지.
     components.html(svg_html, height=900, scrolling=False)
-else:
+elif st.session_state.show_placeholder:
     chart_placeholder.markdown(
         "<div style='height:100vh; display:flex; align-items:center; justify-content:center;"
         " color:#334466; font-size:1.2rem;'>장소와 날짜를 입력하고 밤하늘을 불러오세요</div>",
@@ -303,6 +315,7 @@ else:
         when_str = f"{date_val.strftime('%Y-%m-%d')} {time_val.strftime('%H:%M')}"
         st.session_state.error_msg = None
         st.session_state.narrative = None
+        st.session_state.show_placeholder = False
 
         loading_placeholder.markdown(
             "<div class='loading-overlay'>✦ 밤하늘을 계산하는 중</div>",
