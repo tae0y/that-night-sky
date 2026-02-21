@@ -12,57 +12,12 @@ Coordinate system (matches plotly_2d.py):
 
 from __future__ import annotations
 
-import random
-
 from thatnightsky.models import SkyData
 
 _BG = "#0d1b35"
 _STAR_COLOR = "#f0e0b0"
 _LINE_COLOR = "#c9a96e"
 _HORIZON_COLOR = "#c9a96e"
-
-
-def _build_particle_svg(seed: int = 42) -> str:
-    """Generate background star particle SVG elements.
-
-    Two passes in viewBox coords (x ∈ [-1,1], y ∈ [0,1]):
-      1. ~1400 uniform particles across the full area
-      2. ~600 Gaussian-weighted particles clustered near centre (x=0, y=0.5)
-         to create a denser Milky Way band
-
-    Returns a <g> string ready to embed before the star/line layers.
-    """
-    rng = random.Random(seed)
-
-    def gauss_clamp(mu: float, sigma: float, lo: float, hi: float) -> float:
-        v = rng.gauss(mu, sigma)
-        return max(lo, min(hi, v))
-
-    parts: list[str] = []
-
-    # Pass 1: uniform across full viewBox
-    for _ in range(1400):
-        px = rng.uniform(-1.0, 1.0)
-        py = rng.uniform(0.0, 1.0)
-        r = rng.uniform(0.0008, 0.0022)
-        op = round(rng.uniform(0.08, 0.30), 2)
-        parts.append(
-            f'<circle cx="{px:.4f}" cy="{py:.4f}" r="{r:.4f}"'
-            f' fill="#dce8ff" opacity="{op}"/>'
-        )
-
-    # Pass 2: Gaussian cluster at centre for Milky Way density
-    for _ in range(600):
-        px = gauss_clamp(0.0, 0.45, -1.0, 1.0)
-        py = gauss_clamp(0.5, 0.28, 0.0, 1.0)
-        r = rng.uniform(0.0008, 0.0022)
-        op = round(rng.uniform(0.12, 0.38), 2)
-        parts.append(
-            f'<circle cx="{px:.4f}" cy="{py:.4f}" r="{r:.4f}"'
-            f' fill="#dce8ff" opacity="{op}"/>'
-        )
-
-    return '<g id="particles">\n    ' + "\n    ".join(parts) + "\n  </g>"
 
 
 def _star_radius(magnitude: float) -> float:
@@ -162,7 +117,6 @@ def render_svg_html(
     lines_svg = "\n    ".join(line_parts)
     defs_svg = "\n    ".join(grad_defs)
     stars_svg = "\n    ".join(star_parts)
-    particles_svg = _build_particle_svg()
 
     # Escape narrative for safe embedding as a JS string literal.
     narrative_js = (
@@ -189,13 +143,19 @@ html, body {{
     background: {_BG};
     overflow: hidden;
 }}
+canvas#starfield {{
+    position: fixed;
+    top: 0; left: 0;
+    pointer-events: none;
+    z-index: 0;
+}}
 svg#sky {{
     display: block;
     position: fixed;
     visibility: hidden;
     cursor: grab;
     touch-action: none;
-    z-index: 0;
+    z-index: 1;
 }}
 svg#sky.grabbing {{
     cursor: grabbing;
@@ -223,13 +183,13 @@ svg#sky.grabbing {{
 </style>
 </head>
 <body>
+<canvas id="starfield"></canvas>
 <svg id="sky" viewBox="-1 0 2 1" xmlns="http://www.w3.org/2000/svg"
      preserveAspectRatio="none" overflow="visible">
   <defs>
     {defs_svg}
   </defs>
   <rect x="-1" y="0" width="2" height="1" fill="{_BG}"/>
-  {particles_svg}
   <g id="scene">
     <g id="rotating">
       <g id="lines">
@@ -257,7 +217,76 @@ svg#sky.grabbing {{
   // overflow="visible" on the SVG lets the horizon arc stroke paint outside the box.
   var CENTRE_TOP_PX = 50;
   var sky = document.getElementById('sky');
+  var sfCanvas = document.getElementById('starfield');
   var p = window.parent;
+
+  // ── starfield canvas ──────────────────────────────────────────
+  // Called after fit() sets SVG geometry. Uses the same R/svgTop/vw/vh
+  // values so particles land exactly in the visible screen area.
+  // seededRand: simple deterministic LCG so particles are stable across redraws.
+  function drawStarfield(vw, vh, R, svgTop) {{
+    var dpr = window.devicePixelRatio || 1;
+    sfCanvas.width  = Math.round(vw * dpr);
+    sfCanvas.height = Math.round(vh * dpr);
+    sfCanvas.style.width  = vw + 'px';
+    sfCanvas.style.height = vh + 'px';
+    var ctx = sfCanvas.getContext('2d');
+    ctx.fillStyle = '{_BG}';
+    ctx.fillRect(0, 0, sfCanvas.width, sfCanvas.height);
+
+    // Deterministic PRNG (seeded) so the field doesn't flicker on resize
+    var s = 12345;
+    function rand() {{ s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; }}
+    function gauss() {{
+      return Math.sqrt(-2 * Math.log(rand() + 1e-9)) * Math.cos(2 * Math.PI * rand());
+    }}
+
+    // Screen-space dome centre (horizon arc centre): x=vw/2, y=CENTRE_TOP_PX
+    // SVG top = svgTop (negative), so screen y=0 maps to SVG pixel y = -svgTop.
+    // Dome arc centre in screen px: (vw/2, CENTRE_TOP_PX).
+    // Dome radius in screen px: R.
+    var cx = vw / 2 * dpr;
+    var cy = CENTRE_TOP_PX * dpr;  // horizon centre in physical px
+    var cR = R * dpr;
+
+    // Pass 1: sparse uniform across full screen
+    for (var i = 0; i < 2000; i++) {{
+      var px = rand() * sfCanvas.width;
+      var py = rand() * sfCanvas.height;
+      var r  = (0.4 + rand() * 0.6) * dpr;
+      var op = 0.06 + rand() * 0.18;
+      ctx.beginPath(); ctx.arc(px, py, r, 0, 6.283);
+      ctx.fillStyle = 'rgba(210,225,255,' + op.toFixed(2) + ')';
+      ctx.fill();
+    }}
+
+    // Pass 2: blob clusters — 16 centres, each 200 particles, tight sigma
+    for (var b = 0; b < 16; b++) {{
+      var bx = cx + gauss() * cR * 0.7;
+      var by = cy - rand() * cR;  // above horizon (screen y < cy)
+      for (var j = 0; j < 200; j++) {{
+        var px2 = bx + gauss() * cR * 0.08;
+        var py2 = by + gauss() * cR * 0.06;
+        if (px2 < 0 || py2 < 0 || px2 > sfCanvas.width || py2 > sfCanvas.height) continue;
+        var r2  = (0.4 + rand() * 0.7) * dpr;
+        var op2 = 0.15 + rand() * 0.35;
+        ctx.beginPath(); ctx.arc(px2, py2, r2, 0, 6.283);
+        ctx.fillStyle = 'rgba(210,225,255,' + op2.toFixed(2) + ')';
+        ctx.fill();
+      }}
+    }}
+
+    // Pass 3: brighter accent dots
+    for (var k = 0; k < 600; k++) {{
+      var px3 = rand() * sfCanvas.width;
+      var py3 = rand() * sfCanvas.height;
+      var r3  = (0.7 + rand() * 1.0) * dpr;
+      var op3 = 0.22 + rand() * 0.33;
+      ctx.beginPath(); ctx.arc(px3, py3, r3, 0, 6.283);
+      ctx.fillStyle = 'rgba(230,240,255,' + op3.toFixed(2) + ')';
+      ctx.fill();
+    }}
+  }}
 
   function fit() {{
     var vw = p.innerWidth;
@@ -270,6 +299,7 @@ svg#sky.grabbing {{
     sky.style.height = R + 'px';
     sky.style.left   = svgLeft + 'px';
     sky.style.top    = svgTop  + 'px';
+    drawStarfield(vw, vh, R, svgTop);
 
     // Sync iframe to full parent viewport
     var iframe = null;
@@ -545,9 +575,14 @@ svg#sky.grabbing {{
     out.height = Math.round(ph * dpr);
     var ctx = out.getContext('2d');
 
-    // Step 1: background fill (particles are embedded in the SVG itself)
+    // Step 1: background + starfield canvas
     ctx.fillStyle = '{_BG}';
     ctx.fillRect(0, 0, out.width, out.height);
+    try {{
+      if (sfCanvas && sfCanvas.width > 0) {{
+        ctx.drawImage(sfCanvas, 0, 0, out.width, out.height);
+      }}
+    }} catch(e) {{}}
 
     // Step 2: serialize live SVG into data URI, snapshotting current transforms.
     //
