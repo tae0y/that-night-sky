@@ -291,8 +291,8 @@ svg#sky.grabbing {{
   function fit() {{
     var vw = p.innerWidth;
     var vh = p.innerHeight;
-    // R: largest radius that keeps the dome within the viewport
-    var R = Math.min(vw / 2, vh - CENTRE_TOP_PX);
+    // R: dome radius = 60% of viewport height
+    var R = Math.round(vh * 0.6);
     var svgLeft = Math.round((vw - 2 * R) / 2);
     var svgTop  = CENTRE_TOP_PX - R;
     sky.style.width  = (2 * R) + 'px';
@@ -325,23 +325,45 @@ svg#sky.grabbing {{
       // when the save button is clicked. chart iframe has allow-same-origin
       // so p.document is accessible.
       try {{
-        // If save was triggered before this iframe finished loading,
-        // the marker may already be in the DOM — check immediately.
-        if (p.document.getElementById('tns-save-trigger')) {{
-          _doCapture(null);
+        // tns-save-trigger is always in the DOM when sky_data exists.
+        // data-seq=0 means no save yet; seq>=1 means a save was requested.
+        // Strategy: watch for attribute changes on the trigger node (seq increments),
+        // and also handle the case where the node is added after iframe loads.
+        // Initialise _lastSeq from the current data-seq so a seq already in the
+        // DOM when this iframe loads is treated as "already handled".
+        // Only a seq that increments *after* this iframe loaded triggers capture.
+        var _initEl = p.document.getElementById('tns-save-trigger');
+        var _lastSeq = _initEl ? parseInt(_initEl.getAttribute('data-seq') || '0', 10) : 0;
+
+        function _checkTrigger() {{
+          var el = p.document.getElementById('tns-save-trigger');
+          if (!el) return;
+          var seq = parseInt(el.getAttribute('data-seq') || '0', 10);
+          if (seq > _lastSeq) {{
+            _lastSeq = seq;
+            _doCapture(null);
+          }}
         }}
+
         var mo = new MutationObserver(function(records) {{
           for (var ri = 0; ri < records.length; ri++) {{
-            var nodes = records[ri].addedNodes;
+            var r = records[ri];
+            // attribute change on the trigger node itself
+            if (r.type === 'attributes' && r.target.id === 'tns-save-trigger') {{
+              _checkTrigger(); return;
+            }}
+            // node added: trigger node newly inserted (e.g. first chart load)
+            var nodes = r.addedNodes;
             for (var ni = 0; ni < nodes.length; ni++) {{
               var n = nodes[ni];
-              var found = (n.id === 'tns-save-trigger') ||
-                          (n.querySelector && n.querySelector('#tns-save-trigger'));
-              if (found) {{ _doCapture(null); return; }}
+              if ((n.id === 'tns-save-trigger') ||
+                  (n.querySelector && n.querySelector('#tns-save-trigger'))) {{
+                _checkTrigger(); return;
+              }}
             }}
           }}
         }});
-        mo.observe(p.document.body, {{ childList: true, subtree: true }});
+        mo.observe(p.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['data-seq'] }});
       }} catch(e) {{}}
     }});
   }});
@@ -655,15 +677,15 @@ svg#sky.grabbing {{
       // 9-arg drawImage.
       // Image size: svgW × extH.  Image top-left is at screen (svgLeft, svgTop).
       // svgTop < 0: image extends above screen top; sy=-svgTop skips that portion.
-      // svgLeft >= 0: dome is horizontally centred, no off-screen left edge.
-      // Paints screen (0,0)→(pw,ph) exactly.
-      var sx = 0;           // svgLeft >= 0, image left is on-screen
-      var sy = -svgTop;     // skip above-screen portion (svgTop<0 → sy>0)
-      var sw = pw;
+      // svgLeft < 0: dome wider than viewport; sx=-svgLeft skips off-screen left portion.
+      // svgLeft > 0: dome narrower than viewport; dx=svgLeft*dpr offsets onto canvas.
+      var sx = svgLeft < 0 ? -svgLeft : 0;
+      var sy = -svgTop;
+      var sw = Math.min(svgW - sx, pw - (svgLeft > 0 ? svgLeft : 0));
       var sh = ph;
-      var dx = 0;
+      var dx = svgLeft > 0 ? Math.round(svgLeft * dpr) : 0;
       var dy = 0;
-      var dw = pw * dpr;
+      var dw = sw * dpr;
       var dh = ph * dpr;
 
       if (sw > 0 && sh > 0) {{

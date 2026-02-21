@@ -96,6 +96,11 @@ No automated tests exist in this project. The pre-commit hooks (ruff, pyright, b
 - `privacy_agreed`: `bool` — controls the one-time privacy dialog
 - `narrative_count`: `int` — tracks Claude API calls per session; capped at `_MAX_NARRATIVES_PER_SESSION = 3`
 - `input_open`: `bool` — toggles the bottom input panel (mobile collapsed state)
+- `show_placeholder`: `bool` — controls placeholder visibility for input fields
+- `save_triggered`: `bool` / `save_seq`: `int` — coordinate the save-as-image flow across reruns
+- `theme`: `str` — persists "이 날의 의미" input across reruns
+- `when_str`: `str` — persists date/time input across reruns
+- `default_input`: `dict` — randomly chosen sample input (address/date/time/theme) shown on first load
 
 ## Dependency Management
 

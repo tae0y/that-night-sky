@@ -39,6 +39,12 @@ if "show_placeholder" not in st.session_state:
     st.session_state.show_placeholder = True
 if "save_triggered" not in st.session_state:
     st.session_state.save_triggered = False
+if "save_seq" not in st.session_state:
+    st.session_state.save_seq = 0
+if "theme" not in st.session_state:
+    st.session_state.theme = ""
+if "when_str" not in st.session_state:
+    st.session_state.when_str = ""
 
 _MAX_NARRATIVES_PER_SESSION = 3
 
@@ -440,8 +446,13 @@ chart_placeholder = st.empty()
 loading_placeholder = st.empty()
 
 if st.session_state.sky_data is not None:
-    ctx = st.session_state.sky_data.context
-    png_filename = f"그날밤하늘_{ctx.address_display}_{ctx.utc_dt.strftime('%Y%m%d')}.png"
+    _when = st.session_state.when_str  # "YYYY-MM-DD HH:MM"
+    _date_part = _when[:10]  # YYYY-MM-DD
+    _hh_part = _when[11:13]  # HH
+    _place_part = st.session_state.sky_data.context.address_display.replace(" ", "_")
+    _theme_part = st.session_state.theme.replace(" ", "_") if st.session_state.theme else ""
+    _name_parts = [p for p in [_date_part, _hh_part, _place_part, _theme_part] if p]
+    png_filename = "_".join(_name_parts) + ".png"
     svg_html = render_svg_html(
         st.session_state.sky_data,
         filename=png_filename,
@@ -453,11 +464,17 @@ if st.session_state.sky_data is not None:
     # SVG는 visibility:hidden으로 시작해 JS 완료 후 visible — 깜빡임 방지.
     components.html(svg_html, height=900, scrolling=False)
 
-# Save trigger: chart iframe watches parent DOM for this marker via MutationObserver.
-# Rendered for exactly one rerun after save button click, then cleared.
-if st.session_state.save_triggered:
-    st.markdown('<div id="tns-save-trigger" style="display:none"></div>', unsafe_allow_html=True)
-    st.session_state.save_triggered = False
+# Save trigger: chart iframe watches parent DOM for attribute changes on this marker.
+# Always rendered when sky_data exists so the node persists across reruns.
+# data-seq increments on each save click; iframe JS watches for attribute mutations.
+if st.session_state.sky_data is not None:
+    if st.session_state.save_triggered:
+        st.session_state.save_seq += 1
+        st.session_state.save_triggered = False
+    st.markdown(
+        f'<div id="tns-save-trigger" data-seq="{st.session_state.save_seq}" style="display:none"></div>',
+        unsafe_allow_html=True,
+    )
 
 if st.session_state.show_placeholder and st.session_state.sky_data is None:
     chart_placeholder.markdown(
@@ -522,6 +539,8 @@ else:
         st.session_state.error_msg = None
         st.session_state.narrative = None
         st.session_state.show_placeholder = False
+        st.session_state.theme = theme
+        st.session_state.when_str = when_str
 
         loading_placeholder.markdown(
             "<div class='loading-overlay'>✦ 밤하늘을 계산하는 중"
