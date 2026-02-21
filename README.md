@@ -1,6 +1,6 @@
 # ThatNightSky
 
-> A programmer's way of remembering anniversary.
+A programmer's way of keeping a memory. Some days deserve their own sky.
 
 ## Getting Started
 

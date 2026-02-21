@@ -14,20 +14,30 @@ from __future__ import annotations
 
 from thatnightsky.models import SkyData
 
-_BG = "#050a1a"
-_STAR_COLOR = "#ffffff"
-_LINE_COLOR = "#7ec8e3"
-_HORIZON_COLOR = "#334466"
+_BG = "#0d1b35"
+_STAR_COLOR = "#f0e0b0"
+_LINE_COLOR = "#c9a96e"
+_HORIZON_COLOR = "#c9a96e"
 
 
 def _star_radius(magnitude: float) -> float:
     """Map Hipparcos magnitude to SVG circle radius in data-units."""
-    # viewBox width=2, so radius 0.01 ≈ 1% of chart width
-    r = (6 - magnitude) / 800
-    return max(0.002, min(r, 0.012))
+    # viewBox width=2, so radius 0.01 ≈ 1% of chart width.
+    # Wider dynamic range than before: bright stars (mag<2) are notably larger.
+    r = (6 - magnitude) / 600
+    return max(0.0018, min(r, 0.018))
 
 
-def render_svg_html(sky_data: SkyData) -> str:
+def _star_opacity(magnitude: float) -> float:
+    """Dimmer stars are more transparent, reinforcing magnitude difference."""
+    return max(0.35, min(1.0, (6 - magnitude) / 6))
+
+
+def render_svg_html(
+    sky_data: SkyData,
+    filename: str = "그날밤하늘.png",
+    narrative: str = "",
+) -> str:
     """Return a self-contained HTML page with an SVG star chart.
 
     The SVG fills the viewport via CSS. A semicircle represents the
@@ -35,8 +45,13 @@ def render_svg_html(sky_data: SkyData) -> str:
     white circles scaled by magnitude. Constellation lines are drawn
     as thin cyan strokes.
 
+    When `narrative` is set, it is embedded as a JS string and drawn
+    as wrapped text at the bottom of the captured PNG on `tns_save`.
+
     Args:
         sky_data: Fully computed celestial data.
+        filename: Suggested filename for the downloaded PNG.
+        narrative: Optional Korean narrative text to draw on PNG.
 
     Returns:
         HTML string suitable for st.components.v1.html().
@@ -57,26 +72,63 @@ def render_svg_html(sky_data: SkyData) -> str:
             sy1 = 1 - y1
             line_parts.append(
                 f'<line x1="{x0:.4f}" y1="{sy0:.4f}" x2="{x1:.4f}" y2="{sy1:.4f}"'
-                f' stroke="{_LINE_COLOR}" stroke-width="0.002" stroke-opacity="0.5"/>'
+                f' stroke="{_LINE_COLOR}" stroke-width="0.0025" stroke-opacity="0.55"/>'
             )
 
     # --- Stars ---
+    # 10 shared radialGradient levels keyed by opacity bucket — avoids one gradient
+    # per star which would bloat the HTML and break iframe rendering.
+    _N_GLOW_LEVELS = 10
+    grad_defs: list[str] = []
+    for lvl in range(_N_GLOW_LEVELS):
+        op_lvl = 0.35 + lvl * (0.65 / (_N_GLOW_LEVELS - 1))
+        grad_defs.append(
+            f'<radialGradient id="sg{lvl}" cx="50%" cy="50%" r="50%">'
+            f'<stop offset="0%" stop-color="{_STAR_COLOR}" stop-opacity="{op_lvl * 0.55:.2f}"/>'
+            f'<stop offset="40%" stop-color="{_STAR_COLOR}" stop-opacity="{op_lvl * 0.18:.2f}"/>'
+            f'<stop offset="100%" stop-color="{_STAR_COLOR}" stop-opacity="0"/>'
+            f'</radialGradient>'
+        )
+
     star_parts: list[str] = []
     for s in visible:
         r = _star_radius(s.magnitude)
+        op = _star_opacity(s.magnitude)
         sy = 1 - s.y
+        glow_r = r * 4.5
+        lvl = round((op - 0.35) / 0.65 * (_N_GLOW_LEVELS - 1))
+        lvl = max(0, min(_N_GLOW_LEVELS - 1, lvl))
+        star_parts.append(
+            f'<circle cx="{s.x:.4f}" cy="{sy:.4f}" r="{glow_r:.4f}"'
+            f' fill="url(#sg{lvl})"/>'
+        )
         star_parts.append(
             f'<circle cx="{s.x:.4f}" cy="{sy:.4f}" r="{r:.4f}"'
-            f' fill="{_STAR_COLOR}" opacity="0.9"/>'
+            f' fill="{_STAR_COLOR}" opacity="{op:.2f}"/>'
         )
 
-    # --- Horizon semicircle ---
-    # viewBox="-1 0 2 1": center=(0,1), radius=1 → upper half arc only
+    # --- Horizon circle ---
+    # Full circle centred at (0,1) with radius 1.
+    # viewBox="-1 0 2 1": only the upper half is visible (y<1); lower half is clipped.
     # SVG y-axis is top-down, so y=1 is the bottom edge of the viewBox.
-    horizon_path = "M -1,1 A 1,1 0 0 1 1,1"
+    # Two strokes: outer glow (wide, low opacity) + sharp inner line.
+    horizon_path = "M -1,1 A 1,1 0 1 1 1,1 A 1,1 0 1 1 -1,1 Z"
 
     lines_svg = "\n    ".join(line_parts)
+    defs_svg = "\n    ".join(grad_defs)
     stars_svg = "\n    ".join(star_parts)
+
+    # Escape narrative for safe embedding as a JS string literal.
+    narrative_js = (
+        "null"
+        if not narrative
+        else '"'
+        + narrative.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("\n", "\\n")
+        .replace("\r", "")
+        + '"'
+    )
 
     return f"""<!DOCTYPE html>
 <html>
@@ -93,12 +145,10 @@ html, body {{
 }}
 svg#sky {{
     display: block;
-    width: 100%;
-    height: 100%;
+    position: fixed;
     visibility: hidden;
     cursor: grab;
     touch-action: none;
-    position: relative;
     z-index: 0;
 }}
 svg#sky.grabbing {{
@@ -108,9 +158,9 @@ svg#sky.grabbing {{
     position: fixed;
     bottom: 1rem;
     right: 1rem;
-    background: rgba(0,0,0,0.7);
-    color: #aac8e8;
-    border: 1px solid #334466;
+    background: rgba(13,27,53,0.85);
+    color: #c9a96e;
+    border: 1px solid rgba(201,169,110,0.4);
     border-radius: 6px;
     padding: 0.4rem 0.9rem;
     font-size: 0.85rem;
@@ -121,13 +171,17 @@ svg#sky.grabbing {{
     pointer-events: auto;
 }}
 #reset-btn:hover {{
-    background: rgba(51,68,102,0.85);
+    background: rgba(201,169,110,0.15);
 }}
+#save-btn {{ display: none; }}
 </style>
 </head>
 <body>
 <svg id="sky" viewBox="-1 0 2 1" xmlns="http://www.w3.org/2000/svg"
-     preserveAspectRatio="xMidYMax meet">
+     preserveAspectRatio="none" overflow="visible">
+  <defs>
+    {defs_svg}
+  </defs>
   <rect x="-1" y="0" width="2" height="1" fill="{_BG}"/>
   <g id="scene">
     <g id="rotating">
@@ -138,36 +192,80 @@ svg#sky.grabbing {{
         {stars_svg}
       </g>
     </g>
-    <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.004"/>
+    <!-- horizon: wide glow stroke + sharp gold line -->
+    <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.018" stroke-opacity="0.12"/>
+    <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.005" stroke-opacity="0.85"/>
   </g>
 </svg>
 <button id="reset-btn">↺ 초기화</button>
+<button id="save-btn">↓ 저장</button>
 <script>
 (function() {{
-  // ── iframe fit ──────────────────────────────────────────────
+  // ── iframe + SVG fit ─────────────────────────────────────────
+  // viewBox="-1 0 2 1": data y=0 (zenith) → SVG top, data y=1 (horizon centre) → SVG bottom.
+  // preserveAspectRatio="none" requires pixel ratio to match viewBox ratio exactly (2:1)
+  // so the horizon arc remains a true semicircle.
+  // SVG width=2R, height=R → ratio 2:1 ✓
+  // SVG top = CENTRE_TOP_PX - R → screen y of SVG bottom edge = CENTRE_TOP_PX ✓
+  // overflow="visible" on the SVG lets the horizon arc stroke paint outside the box.
+  var CENTRE_TOP_PX = 50;
+  var sky = document.getElementById('sky');
   var p = window.parent;
+
   function fit() {{
-    var h = p.innerHeight;
-    var iframe = p.document.querySelector('iframe[title="components.v1.html"]');
-    if (!iframe) {{
-      var frames = p.document.querySelectorAll('iframe');
-      for (var i = 0; i < frames.length; i++) {{
-        if (frames[i].contentWindow === window) {{ iframe = frames[i]; break; }}
-      }}
+    var vw = p.innerWidth;
+    var vh = p.innerHeight;
+    // R: largest radius that keeps the dome within the viewport
+    var R = Math.min(vw / 2, vh - CENTRE_TOP_PX);
+    sky.style.width  = (2 * R) + 'px';
+    sky.style.height = R + 'px';
+    sky.style.left   = Math.round((vw - 2 * R) / 2) + 'px';
+    sky.style.top    = (CENTRE_TOP_PX - R) + 'px';
+
+    // Sync iframe to full parent viewport
+    var iframe = null;
+    var frames = p.document.querySelectorAll('iframe');
+    for (var i = 0; i < frames.length; i++) {{
+      if (frames[i].contentWindow === window) {{ iframe = frames[i]; break; }}
     }}
     if (iframe) {{
-      var w = h * 2;
-      iframe.style.height = h + 'px';
-      iframe.style.width = w + 'px';
+      iframe.style.width    = vw + 'px';
+      iframe.style.height   = vh + 'px';
       iframe.style.position = 'fixed';
-      iframe.style.top = '0';
-      iframe.style.left = Math.round((p.innerWidth - w) / 2) + 'px';
-      iframe.style.zIndex = '0';
-      iframe.style.border = 'none';
-      document.getElementById('sky').style.visibility = 'visible';
+      iframe.style.top      = '0';
+      iframe.style.left     = '0';
+      iframe.style.zIndex   = '0';
+      iframe.style.border   = 'none';
     }}
+    sky.style.visibility = 'visible';
   }}
-  requestAnimationFrame(function() {{ requestAnimationFrame(fit); }});
+  requestAnimationFrame(function() {{
+    requestAnimationFrame(function() {{
+      fit();
+      // Watch parent DOM for tns-save-trigger marker injected by Streamlit
+      // when the save button is clicked. chart iframe has allow-same-origin
+      // so p.document is accessible.
+      try {{
+        // If save was triggered before this iframe finished loading,
+        // the marker may already be in the DOM — check immediately.
+        if (p.document.getElementById('tns-save-trigger')) {{
+          _doCapture(null);
+        }}
+        var mo = new MutationObserver(function(records) {{
+          for (var ri = 0; ri < records.length; ri++) {{
+            var nodes = records[ri].addedNodes;
+            for (var ni = 0; ni < nodes.length; ni++) {{
+              var n = nodes[ni];
+              var found = (n.id === 'tns-save-trigger') ||
+                          (n.querySelector && n.querySelector('#tns-save-trigger'));
+              if (found) {{ _doCapture(null); return; }}
+            }}
+          }}
+        }});
+        mo.observe(p.document.body, {{ childList: true, subtree: true }});
+      }} catch(e) {{}}
+    }});
+  }});
   p.addEventListener('resize', fit);
 
   // ── pan + zoom ───────────────────────────────────────────────
@@ -356,6 +454,129 @@ svg#sky.grabbing {{
   resetBtn.addEventListener('click', function() {{
     tx = 0; ty = 0; scale = 1;
     applyTransform();
+  }});
+
+  // ── save button ──────────────────────────────────────────────
+  var saveBtn = document.getElementById('save-btn');
+  saveBtn.addEventListener('click', function() {{
+    saveBtn.disabled = true;
+    _doCapture(function() {{ saveBtn.disabled = false; }});
+  }});
+
+  // ── PNG capture ──────────────────────────────────────────────
+  // html2canvas captures the live DOM exactly as rendered in the browser.
+  // Key options to handle position:fixed SVG correctly in all browsers:
+  //   - width/height/windowWidth/windowHeight must match the actual viewport,
+  //     not the iframe's intrinsic size (900px).
+  //   - x/y scroll offset = 0 (iframe has no scroll).
+  //   - ignoreElements: skip the reset-btn to keep the PNG clean.
+  var _NARRATIVE = {narrative_js};
+
+  function _loadHtml2canvas(cb) {{
+    if (window._h2c) {{ cb(window._h2c); return; }}
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+    s.onload = function() {{ window._h2c = window.html2canvas; cb(window._h2c); }};
+    s.onerror = function() {{ cb(null); }};
+    document.head.appendChild(s);
+  }}
+
+  function _doCapture(onDone) {{
+    _loadHtml2canvas(function(h2c) {{
+      if (!h2c) {{ if (onDone) onDone(); return; }}
+      var vp = window.parent || window;
+      var pw = vp.innerWidth;
+      var ph = vp.innerHeight;
+      var dpr = window.devicePixelRatio || 1;
+
+      // Temporarily set iframe body to match viewport so html2canvas
+      // treats position:fixed elements relative to (0,0)→(pw,ph).
+      document.documentElement.style.width  = pw + 'px';
+      document.documentElement.style.height = ph + 'px';
+      document.body.style.width  = pw + 'px';
+      document.body.style.height = ph + 'px';
+
+      h2c(document.body, {{
+        backgroundColor: '{_BG}',
+        scale: dpr,
+        width: pw,
+        height: ph,
+        windowWidth: pw,
+        windowHeight: ph,
+        x: 0,
+        y: 0,
+        scrollX: 0,
+        scrollY: 0,
+        useCORS: true,
+        allowTaint: false,
+        logging: false,
+        ignoreElements: function(el) {{
+          return el.id === 'reset-btn' || el.id === 'save-btn';
+        }},
+      }}).then(function(canvas) {{
+        document.documentElement.style.width  = '';
+        document.documentElement.style.height = '';
+        document.body.style.width  = '';
+        document.body.style.height = '';
+
+        if (_NARRATIVE) {{
+          var ctx = canvas.getContext('2d');
+          var padY    = Math.round(24 * dpr);
+          var fontSize = Math.round(16 * dpr);
+          var lineH   = Math.round(fontSize * 1.75);
+          var maxW    = Math.min(Math.round(pw * dpr * 0.9), Math.round(640 * dpr));
+          var font    = 'italic ' + fontSize + 'px "NostalgicPoliceHumanRights","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+          ctx.font = font;
+
+          var tokens = _NARRATIVE.split(' ');
+          var lines = [], cur = '';
+          for (var ti = 0; ti < tokens.length; ti++) {{
+            var tok = tokens[ti];
+            if (!tok) continue;
+            var test = cur ? cur + ' ' + tok : tok;
+            if (ctx.measureText(test).width > maxW && cur) {{
+              lines.push(cur); cur = tok;
+            }} else {{ cur = test; }}
+          }}
+          if (cur) lines.push(cur);
+
+          var boxH = lines.length * lineH + padY * 2;
+          var boxY = canvas.height - boxH;
+          ctx.fillStyle = 'rgba(10,20,42,0.82)';
+          ctx.fillRect(0, boxY, canvas.width, boxH);
+          ctx.fillStyle = 'rgba(201,169,110,0.4)';
+          ctx.fillRect(0, boxY, canvas.width, Math.round(dpr));
+          ctx.font = font;
+          ctx.fillStyle = '#e8d5a3';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'top';
+          var ty2 = boxY + padY;
+          for (var li = 0; li < lines.length; li++) {{
+            ctx.fillText(lines[li], Math.round(canvas.width / 2), ty2);
+            ty2 += lineH;
+          }}
+        }}
+
+        var a = document.createElement('a');
+        a.href = canvas.toDataURL('image/png');
+        a.download = '{filename}';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (onDone) onDone();
+      }}).catch(function() {{
+        document.documentElement.style.width  = '';
+        document.documentElement.style.height = '';
+        document.body.style.width  = '';
+        document.body.style.height = '';
+        if (onDone) onDone();
+      }});
+    }});
+  }}
+
+  window.addEventListener('message', function(e) {{
+    if (!e.data || e.data.type !== 'tns_save') return;
+    _doCapture(null);
   }});
 }})();
 </script>
