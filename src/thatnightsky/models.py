@@ -8,7 +8,7 @@ from datetime import datetime
 class QueryInput:
     """Raw user input. Not yet validated."""
 
-    address: str  # Korean address string ("부산광역시 가야동")
+    address: str  # Korean address string (e.g. "부산광역시 가야동")
     when: str  # "YYYY-MM-DD HH:MM" format string
 
 
@@ -62,4 +62,6 @@ class SkyData:
     stars: tuple[StarRecord, ...]  # After magnitude filter
     constellation_lines: tuple[ConstellationLine, ...]
     limiting_magnitude: float  # Magnitude filter threshold
-    constellation_positions: tuple[ConstellationPosition, ...]  # Used for Claude narrative generation
+    constellation_positions: tuple[
+        ConstellationPosition, ...
+    ]  # Used for Claude narrative generation

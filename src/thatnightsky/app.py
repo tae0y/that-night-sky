@@ -1,28 +1,46 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
 import datetime
+import html
 import random
-
-from dotenv import load_dotenv
-
-load_dotenv()
+from typing import TypedDict
 
 import streamlit as st
 import streamlit.components.v1 as components
+from dotenv import load_dotenv
+from streamlit_js_eval import streamlit_js_eval
 
-from thatnightsky.compute import GeocodingError, run
-from thatnightsky.models import QueryInput
-from thatnightsky.narrative import generate_night_description
-from thatnightsky.renderers.svg_2d import render_svg_html
+load_dotenv()
+
+from thatnightsky.compute import GeocodingError, run  # noqa: E402
+from thatnightsky.i18n import t  # noqa: E402
+from thatnightsky.models import QueryInput  # noqa: E402
+from thatnightsky.narrative import generate_night_description  # noqa: E402
+from thatnightsky.renderers.svg_2d import render_svg_html  # noqa: E402
+
+# --- Language detection (browser-first via streamlit-js-eval) ---
+# navigator.language is read once and cached in session_state.
+# On the first run the JS call returns None; the rerun triggered by
+# streamlit_js_eval fills it in, at which point _lang is set correctly.
+if "lang" not in st.session_state:
+    _browser_lang: str | None = streamlit_js_eval(
+        js_expressions="navigator.language", key="_lang_detect", height=0
+    )
+    if _browser_lang is not None:
+        st.session_state.lang = "ko" if _browser_lang.lower().startswith("ko") else "en"
+    # if None: JS hasn't returned yet — don't write session_state so next rerun retries
+
+_lang: str = st.session_state.get("lang", "en")
 
 st.set_page_config(
-    page_title="그날 밤하늘",
+    page_title=t("page_title", _lang),
     page_icon="✦",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 # --- Session state initialization ---
+
 if "sky_data" not in st.session_state:
     st.session_state.sky_data = None
 if "narrative" not in st.session_state:
@@ -48,22 +66,68 @@ if "when_str" not in st.session_state:
 
 _MAX_NARRATIVES_PER_SESSION = 3
 
-_SAMPLE_INPUTS = [
-    {
-        "address": "부산 가야동",
-        "date": datetime.date(1995, 1, 15),
-        "time": datetime.time(6, 0),
-        "theme": "생일",
-    }
-]
 
-if "default_input" not in st.session_state:
-    st.session_state.default_input = random.choice(_SAMPLE_INPUTS)
+class _SampleInput(TypedDict):
+    address: str
+    date: datetime.date
+    time: datetime.time
+    theme: str
+
+
+_SAMPLE_INPUTS: dict[str, list[_SampleInput]] = {
+    "ko": [
+        {
+            "address": "부산 가야동",
+            "date": datetime.date(1995, 1, 15),
+            "time": datetime.time(6, 0),
+            "theme": "생일",
+        }
+    ],
+    "en": [
+        {
+            "address": "Gahoedong, Jongno-gu, Seoul, South Korea",
+            "date": datetime.date(1900, 1, 1),
+            "time": datetime.time(1, 0),
+            "theme": "Birthday",
+        },
+        {
+            "address": "Central Park, New York",
+            "date": datetime.date(1988, 3, 22),
+            "time": datetime.time(6, 0),
+            "theme": "Reunion",
+        },
+        {
+            "address": "Eiffel Tower, Paris",
+            "date": datetime.date(1999, 7, 6),
+            "time": datetime.time(22, 0),
+            "theme": "Anniversary",
+        },
+        {
+            "address": "Shibuya, Tokyo",
+            "date": datetime.date(2003, 11, 7),
+            "time": datetime.time(21, 0),
+            "theme": "First Meeting",
+        },
+        {
+            "address": "The Bund, Shanghai",
+            "date": datetime.date(2024, 9, 18),
+            "time": datetime.time(23, 0),
+            "theme": "Graduation",
+        },
+    ],
+}
+
+if "default_input" not in st.session_state and "lang" in st.session_state:
+    st.session_state.default_input = random.choice(
+        _SAMPLE_INPUTS.get(_lang, _SAMPLE_INPUTS["en"])
+    )
 
 # --- Dark fullscreen theme CSS (static) ---
 st.markdown(
     """
     <style>
+    /* Hide streamlit_js_eval invisible iframe */
+    iframe[src*="streamlit_js_eval"] { display: none !important; }
     /* Custom font */
     @font-face {
         font-family: 'NostalgicPoliceHumanRights';
@@ -158,7 +222,7 @@ st.markdown(
     [data-testid="stButton"] button:hover {
         background-color: rgba(126, 200, 227, 0.35) !important;
     }
-    /* 밤하늘보기 버튼: 고정 너비 */
+    /* View Sky button: fixed width */
     .st-key-submit_btn button {
         width: 9rem !important;
         min-width: unset !important;
@@ -261,7 +325,7 @@ st.markdown(
     }
     </script>
     <style>
-    /* Bottom bar when input is closed: [다시 입력하기] + [저장하기] */
+    /* Bottom bar when input is closed: [Edit] + [Save] */
     .st-key-bottom_bar {
         position: fixed !important;
         bottom: 0 !important;
@@ -407,24 +471,25 @@ if not st.session_state.privacy_agreed:
     _, col, _ = st.columns([1, 2, 1])
     with col:
         st.markdown(
-            """
+            f"""
             <style>
-            .privacy-notice h3 { color: #ffffff; margin-bottom: 1rem; }
-            .privacy-notice p  { color: #cccccc; line-height: 1.7; margin-bottom: 0.6rem; font-size: 0.95rem; }
-            .privacy-notice small { color: #999999; font-size: 0.85rem; }
-            .privacy-notice a { color: #7ec8e3; }
+            .privacy-notice h3 {{ color: #ffffff; margin-bottom: 1rem; }}
+            .privacy-notice p  {{ color: #cccccc; line-height: 1.7; margin-bottom: 0.6rem; font-size: 0.95rem; }}
+            .privacy-notice small {{ color: #999999; font-size: 0.85rem; }}
+            .privacy-notice a {{ color: #7ec8e3; }}
             </style>
             <div class="privacy-notice">
-                <h3>개인정보 처리 고지</h3>
-                <p>입력한 정보는 서비스 제공을 위해 Anthropic에 전송되며,<br>별도로 저장되지 않습니다.</p>
-                <p>서버 운영 로그는 7일 후 자동 삭제됩니다.</p>
-                <small>본 서비스는 <a href="https://www.anthropic.com/legal/privacy" target="_blank">Anthropic의 데이터 처리 정책</a>을 따릅니다.</small>
+                <h3>{t("privacy_title", _lang)}</h3>
+                <p>{t("privacy_body", _lang)}</p>
+                <small><a href="https://www.anthropic.com/legal/privacy" target="_blank">{t("privacy_link", _lang)}</a></small>
             </div>
             <div style="height: 0.8rem"></div>
             """,
             unsafe_allow_html=True,
         )
-        if st.button("확인", key="privacy_confirm", use_container_width=True):
+        if st.button(
+            t("btn_confirm", _lang), key="privacy_confirm", use_container_width=True
+        ):
             st.session_state.privacy_agreed = True
             st.rerun()
     st.stop()
@@ -437,19 +502,17 @@ if st.session_state.sky_data is not None:
     _when = st.session_state.when_str  # "YYYY-MM-DD HH:MM"
     _date_part = _when[:10]  # YYYY-MM-DD
     _hh_part = _when[11:13]  # HH
-    _place_part = st.session_state.sky_data.context.address_display.replace(" ", "_")
-    _theme_part = st.session_state.theme.replace(" ", "_") if st.session_state.theme else ""
-    _name_parts = [p for p in [_date_part, _hh_part, _place_part, _theme_part] if p]
-    png_filename = "_".join(_name_parts) + ".png"
+    png_filename = f"{_date_part}_{_hh_part}00.png"
     svg_html = render_svg_html(
         st.session_state.sky_data,
         filename=png_filename,
         narrative=st.session_state.narrative or "",
+        lang=_lang,
     )
     chart_placeholder.empty()
-    # height=900: Streamlit이 요구하는 초기 iframe 높이(0이면 숨겨짐).
-    # JS가 iframe을 position:fixed + width=h*2로 재조정하여 뷰포트 꽉 채움.
-    # SVG는 visibility:hidden으로 시작해 JS 완료 후 visible — 깜빡임 방지.
+    # height=900: initial iframe height Streamlit requires (hidden if 0).
+    # JS resizes iframe to position:fixed + width=h*2 to fill the viewport.
+    # SVG starts visibility:hidden, shown after JS completes — prevents flash.
     components.html(svg_html, height=900, scrolling=False)
 
 # Save trigger: chart iframe watches parent DOM for attribute changes on this marker.
@@ -466,38 +529,46 @@ if st.session_state.sky_data is not None:
 
 if st.session_state.show_placeholder and st.session_state.sky_data is None:
     chart_placeholder.markdown(
-        "<div style='height:100vh; display:flex; align-items:center; justify-content:center;"
-        " color:#334466; font-size:1.2rem;'>장소와 날짜를 입력하고 밤하늘을 불러오세요</div>",
+        f"<div style='height:100vh; display:flex; align-items:center; justify-content:center;"
+        f" color:#334466; font-size:1.2rem;'>{t('placeholder', _lang)}</div>",
         unsafe_allow_html=True,
     )
 
 # --- Input panel ---
 # Mobile closed state: show toggle button only (input form hidden via CSS)
 # Mobile open state / Desktop: show full input form
+# Guard: skip rendering until lang is resolved and default_input is ready.
+if "default_input" not in st.session_state:
+    st.stop()
+
 if not st.session_state.input_open:
     with st.container(key="bottom_bar"):
         has_sky = st.session_state.sky_data is not None
         bcol1, bcol2 = st.columns(2) if has_sky else (st.columns(1)[0], None)
         with bcol1:
-            if st.button("다시 입력하기", key="toggle_open", use_container_width=True):
+            if st.button(
+                t("btn_edit", _lang), key="toggle_open", use_container_width=True
+            ):
                 st.session_state.input_open = True
                 st.rerun()
         if bcol2 is not None:
             with bcol2:
-                if st.button("저장하기", key="save_btn", use_container_width=True):
+                if st.button(
+                    t("btn_save", _lang), key="save_btn", use_container_width=True
+                ):
                     st.session_state.save_triggered = True
                     st.rerun()
 else:
     col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1.5])
     with col1:
         address = st.text_input(
-            "장소",
+            t("label_place", _lang),
             value=st.session_state.default_input["address"],
             label_visibility="visible",
         )
     with col2:
         date_val = st.date_input(
-            "날짜",
+            t("label_date", _lang),
             value=st.session_state.default_input["date"],
             min_value=datetime.date(1900, 1, 1),
             max_value=datetime.date.today(),
@@ -505,21 +576,21 @@ else:
         )
     with col3:
         time_val = st.time_input(
-            "시각",
+            t("label_time", _lang),
             value=st.session_state.default_input["time"],
             label_visibility="visible",
             step=3600,
         )
     with col4:
         theme = st.text_input(
-            "이 날의 의미",
+            t("label_theme", _lang),
             value=st.session_state.default_input["theme"],
             label_visibility="visible",
             max_chars=20,
         )
     with col5:
         st.markdown("<div style='height:1.9rem'></div>", unsafe_allow_html=True)
-        submitted = st.button("✦ 밤하늘보기", key="submit_btn")
+        submitted = st.button(t("btn_view_sky", _lang), key="submit_btn")
 
     # --- Form submission handler ---
     if submitted and address:
@@ -531,27 +602,27 @@ else:
         st.session_state.when_str = when_str
 
         loading_placeholder.markdown(
-            "<div class='loading-overlay'>✦ 밤하늘을 계산하는 중"
+            f"<div class='loading-overlay'>{t('loading_compute', _lang)}"
             "<script>tnsWatchOverlay();</script>"
             "</div>",
             unsafe_allow_html=True,
         )
         try:
-            sky_data = run(QueryInput(address=address, when=when_str))
+            sky_data = run(QueryInput(address=address, when=when_str), lang=_lang)
             st.session_state.sky_data = sky_data
         except GeocodingError as e:
             loading_placeholder.empty()
-            st.session_state.error_msg = (
-                f"주소를 찾을 수 없어요. 띄어쓰기를 포함해서 입력해보세요. ({e})"
+            st.session_state.error_msg = t("error_address", _lang).format(
+                error=html.escape(str(e))
             )
             st.rerun()
 
         if st.session_state.sky_data is not None:
             if st.session_state.narrative_count >= _MAX_NARRATIVES_PER_SESSION:
-                st.session_state.narrative = "이 세션에서 최대 3회 이야기를 생성했어요. 새 탭에서 다시 시작할 수 있습니다."
+                st.session_state.narrative = t("narrative_limit", _lang)
             else:
                 loading_placeholder.markdown(
-                    "<div class='loading-overlay'>✦ 그날 밤하늘을 기억하는 중"
+                    f"<div class='loading-overlay'>{t('loading_narrative', _lang)}"
                     "<script>tnsWatchOverlay();</script>"
                     "</div>",
                     unsafe_allow_html=True,
@@ -561,12 +632,13 @@ else:
                         address=st.session_state.sky_data.context.address_display,
                         when=when_str,
                         constellation_positions=st.session_state.sky_data.constellation_positions,
-                        theme=theme,
+                        theme=theme or "",
+                        lang=_lang,
                     )
                     st.session_state.narrative = narrative
                     st.session_state.narrative_count += 1
                 except Exception:
-                    st.session_state.narrative = "그날, 밤, 하늘입니다."
+                    st.session_state.narrative = t("narrative_fallback", _lang)
 
             st.session_state.input_open = False
 
@@ -584,12 +656,12 @@ if st.session_state.error_msg:
 
 # --- Narrative text ---
 if st.session_state.narrative:
+    _narrative_safe = html.escape(st.session_state.narrative).replace("\n", "<br>")
     st.markdown(
         f"<div class='overlay-box' style='position:fixed;bottom:calc(var(--input-h,3rem) + 1.9rem);left:0;right:0;z-index:50;max-height:calc((1.8em * 4 + 2.4rem) * 1.2);overflow-y:auto;box-sizing:border-box;word-break:keep-all;overflow-wrap:break-word;"
         f"background:linear-gradient(to bottom,rgba(8,16,36,0) 0%,rgba(10,20,45,0.72) 18%,rgba(12,24,52,0.88) 45%,rgba(13,27,55,0.96) 100%);"
         f"border-top:1px solid rgba(201,169,110,0.12);'>"
         f"<p class='narrative-text' style='width:min(90%,640px);margin:0 auto;text-align:center;word-break:keep-all;overflow-wrap:break-word;'>"
-        f"{st.session_state.narrative}</p></div>",
+        f"{_narrative_safe}</p></div>",
         unsafe_allow_html=True,
     )
-

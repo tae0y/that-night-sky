@@ -12,6 +12,7 @@ Coordinate system (matches plotly_2d.py):
 
 from __future__ import annotations
 
+from thatnightsky.i18n import t
 from thatnightsky.models import SkyData
 
 _BG = "#0d1b35"
@@ -35,8 +36,9 @@ def _star_opacity(magnitude: float) -> float:
 
 def render_svg_html(
     sky_data: SkyData,
-    filename: str = "그날밤하늘.png",
+    filename: str = "that-night-sky.png",
     narrative: str = "",
+    lang: str = "en",
 ) -> str:
     """Return a self-contained HTML page with an SVG star chart.
 
@@ -51,7 +53,8 @@ def render_svg_html(
     Args:
         sky_data: Fully computed celestial data.
         filename: Suggested filename for the downloaded PNG.
-        narrative: Optional Korean narrative text to draw on PNG.
+        narrative: Optional narrative text to draw on PNG.
+        lang: Language code ('ko' or 'en') for button labels.
 
     Returns:
         HTML string suitable for st.components.v1.html().
@@ -204,8 +207,8 @@ svg#sky.grabbing {{
     <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.005" stroke-opacity="0.85"/>
   </g>
 </svg>
-<button id="reset-btn">↺ 초기화</button>
-<button id="save-btn">↓ 저장</button>
+<button id="reset-btn">{t("svg_btn_reset", lang)}</button>
+<button id="save-btn">{t("svg_btn_save", lang)}</button>
 <script>
 (function() {{
   // ── iframe + SVG fit ─────────────────────────────────────────

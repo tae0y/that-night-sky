@@ -1,5 +1,6 @@
 """Astronomy computation layer — geocoding, skyfield calculations, and constellation data loading."""
 
+import logging
 import math
 import os
 from collections import defaultdict
@@ -33,10 +34,10 @@ with _loader.open("hip_main.dat") as f:
 
 
 class GeocodingError(Exception):
-    """vworld geocoder call failure."""
+    """Geocoder call failure."""
 
 
-def _geocode_with_type(address: str, addr_type: str) -> dict | None:
+def _geocode_vworld(address: str, addr_type: str) -> dict | None:
     """Single vworld API call. Returns None on NOT_FOUND, raises on ERROR."""
     params = {
         "service": "address",
@@ -59,14 +60,36 @@ def _geocode_with_type(address: str, addr_type: str) -> dict | None:
     raise GeocodingError(f"vworld error: {data.get('error', status)}")
 
 
-def geocode_address(address: str, when: str) -> ObserverContext:
+def _geocode_nominatim(address: str) -> tuple[float, float, str] | None:
+    """Nominatim (OpenStreetMap) geocoder. Returns (lat, lng, display_name) or None."""
+    params = {"q": address, "format": "json", "limit": 1}
+    headers = {
+        "User-Agent": "ThatNightSky/1.0 (https://github.com/tae0y/that-night-sky)"
+    }
+    resp = httpx.get(
+        "https://nominatim.openstreetmap.org/search",
+        params=params,
+        headers=headers,
+        timeout=10,
+    )
+    resp.raise_for_status()
+    results = resp.json()
+    if not results:
+        return None
+    r = results[0]
+    return float(r["lat"]), float(r["lon"]), r["display_name"]
+
+
+def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContext:
     """Resolve an address string and time string to an ObserverContext.
 
-    Tries ROAD type first; falls back to PARCEL on NOT_FOUND.
+    For Korean (lang='ko'): tries vworld (ROAD → PARCEL), falls back to Nominatim.
+    For other languages: uses Nominatim directly.
 
     Args:
-        address: Korean address string.
+        address: Address string in any language.
         when: Local time string in "YYYY-MM-DD HH:MM" format.
+        lang: Language code ('ko' or 'en'). Determines geocoder strategy.
 
     Returns:
         ObserverContext containing lat/lng, UTC datetime, and normalized address.
@@ -74,15 +97,30 @@ def geocode_address(address: str, when: str) -> ObserverContext:
     Raises:
         GeocodingError: On API error or when address cannot be found.
     """
-    data = _geocode_with_type(address, "ROAD") or _geocode_with_type(address, "PARCEL")
-    if data is None:
-        raise GeocodingError(f"Address not found: {address}")
+    lat: float | None = None
+    lng: float | None = None
+    address_display: str = address
 
-    point = data["result"]["point"]
-    lng = float(point["x"])
-    lat = float(point["y"])
-    address_display = data["refined"]["text"]
+    if lang == "ko" and os.environ.get("VWORLD_API_KEY"):
+        try:
+            data = _geocode_vworld(address, "ROAD") or _geocode_vworld(
+                address, "PARCEL"
+            )
+            if data is not None:
+                point = data["result"]["point"]
+                lng = float(point["x"])
+                lat = float(point["y"])
+                address_display = data["refined"]["text"]
+        except GeocodingError:
+            logging.warning("vworld geocoding failed; falling back to Nominatim", exc_info=True)
 
+    if lat is None:
+        result = _geocode_nominatim(address)
+        if result is None:
+            raise GeocodingError(f"Address not found: {address}")
+        lat, lng, address_display = result
+
+    assert lng is not None
     dt = datetime.strptime(when, "%Y-%m-%d %H:%M")
     tz_str = _tf.timezone_at(lat=lat, lng=lng)
     if tz_str is None:
@@ -200,11 +238,19 @@ def _compute_constellation_positions(
         weights = [1.0 / (s.magnitude + 3.0) for s in stars]
         total_w = sum(weights)
         # Circular mean for azimuth
-        sin_sum = sum(w * math.sin(math.radians(s.az_deg)) for w, s in zip(weights, stars))
-        cos_sum = sum(w * math.cos(math.radians(s.az_deg)) for w, s in zip(weights, stars))
+        sin_sum = sum(
+            w * math.sin(math.radians(s.az_deg)) for w, s in zip(weights, stars)
+        )
+        cos_sum = sum(
+            w * math.cos(math.radians(s.az_deg)) for w, s in zip(weights, stars)
+        )
         az_mean = math.degrees(math.atan2(sin_sum / total_w, cos_sum / total_w)) % 360
         alt_mean = sum(w * s.alt_deg for w, s in zip(weights, stars)) / total_w
-        positions.append(ConstellationPosition(name=name, az_deg=round(az_mean, 1), alt_deg=round(alt_mean, 1)))
+        positions.append(
+            ConstellationPosition(
+                name=name, az_deg=round(az_mean, 1), alt_deg=round(alt_mean, 1)
+            )
+        )
 
     return tuple(positions)
 
@@ -234,15 +280,18 @@ def load_constellation_lines() -> tuple[ConstellationLine, ...]:
     return tuple(lines)
 
 
-def run(query: QueryInput, limiting_magnitude: float = 6.5) -> SkyData:
+def run(
+    query: QueryInput, limiting_magnitude: float = 6.5, lang: str = "en"
+) -> SkyData:
     """Top-level entry point: takes a QueryInput and returns a SkyData.
 
     Args:
         query: User input (address, time string).
         limiting_magnitude: Maximum magnitude to include.
+        lang: Language code ('ko' or 'en'). Determines geocoder strategy.
 
     Returns:
         Fully computed SkyData.
     """
-    context = geocode_address(query.address, query.when)
+    context = geocode_address(query.address, query.when, lang=lang)
     return compute_sky_data(context, limiting_magnitude)

@@ -33,8 +33,8 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
     mags = np.array([s.magnitude for s in visible])
     sizes = np.clip(6 - mags, 1, 8)
 
-    # figure는 2:1 비율(xrange 2, yrange 1), scaleanchor 없음
-    # 별자리 모양 왜곡 방지: y를 2배 스케일해서 시각적 1:1 비율 복원
+    # Figure is 2:1 aspect (xrange 2, yrange 1), no scaleanchor
+    # To avoid distorting constellation shapes, y is scaled ×2 to restore visual 1:1 ratio
     x_vals = [s.x for s in visible]
     y_vals = [s.y * 2 for s in visible]
 
@@ -97,9 +97,9 @@ def render_plotly_chart(sky_data: SkyData) -> go.Figure:
             autorange=False,
             fixedrange=False,
         ),
-        # Horizon arc: paper 좌표 SVG path (scaleanchor 없이 항상 정확한 반원)
-        # paper 좌표 x=0~1, y=0~1 (데이터 좌표와 무관)
-        # 반원: 좌하(0,0) → 우하(1,0), 호 중심=(0.5,0), 반지름=0.5
+        # Horizon arc: paper-coordinate SVG path (always an exact semicircle without scaleanchor)
+        # Paper coordinates: x=0~1, y=0~1 (independent of data coordinates)
+        # Semicircle: bottom-left (0,0) → bottom-right (1,0), arc center=(0.5,0), radius=0.5
         shapes=[
             dict(
                 type="path",
