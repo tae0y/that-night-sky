@@ -1650,6 +1650,18 @@ wheels = [
 ]
 
 [[package]]
+name = "streamlit-js-eval"
+version = "1.0.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "streamlit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/10/43/1403cdd4cafd4df8509e60d04b67bbd2e5fa454c03528d53e337c8022b1f/streamlit_js_eval-1.0.0.tar.gz", hash = "sha256:9e2b2005e3e8a4971d222488a02c880b7b93c8951393ff7f97419ded914498e4", size = 11454, upload-time = "2026-01-09T15:20:18.943Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7c/40/ae13b0290e89056ea16fbce331a94fa8bfb50cfeb7c1947e61e842636f94/streamlit_js_eval-1.0.0-py3-none-any.whl", hash = "sha256:4876f56dadb6a578615661b43bbec772c93dd4cd12efb2a2310534da06c34dbb", size = 11369, upload-time = "2026-01-09T15:20:17.698Z" },
+]
+
+[[package]]
 name = "tenacity"
 version = "9.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1676,6 +1688,7 @@ dependencies = [
     { name = "pytz" },
     { name = "skyfield" },
     { name = "streamlit" },
+    { name = "streamlit-js-eval" },
     { name = "timezonefinder" },
 ]
 
@@ -1702,6 +1715,7 @@ requires-dist = [
     { name = "pytz", specifier = ">=2025.2" },
     { name = "skyfield", specifier = ">=1.54" },
     { name = "streamlit", specifier = ">=1.54" },
+    { name = "streamlit-js-eval", specifier = ">=1.0.0" },
     { name = "timezonefinder", specifier = ">=8.2.1" },
 ]
 

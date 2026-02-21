@@ -21,6 +21,7 @@ dependencies = [
     "pytz>=2025.2",
     "skyfield>=1.54",
     "streamlit>=1.54",
+    "streamlit-js-eval>=1.0.0",
     "timezonefinder>=8.2.1",
 ]
 
