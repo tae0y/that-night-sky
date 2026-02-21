@@ -2,6 +2,8 @@
 
 A programmer's way of keeping a memory. Some days deserve their own sky.
 
+> Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
+
 ## Getting Started
 
 1. Get the code, and run it.
