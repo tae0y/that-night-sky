@@ -62,8 +62,15 @@ def _geocode_vworld(address: str, addr_type: str) -> dict | None:
 def _geocode_nominatim(address: str) -> tuple[float, float, str] | None:
     """Nominatim (OpenStreetMap) geocoder. Returns (lat, lng, display_name) or None."""
     params = {"q": address, "format": "json", "limit": 1}
-    headers = {"User-Agent": "ThatNightSky/1.0 (https://github.com/tae0y/that-night-sky)"}
-    resp = httpx.get("https://nominatim.openstreetmap.org/search", params=params, headers=headers, timeout=10)
+    headers = {
+        "User-Agent": "ThatNightSky/1.0 (https://github.com/tae0y/that-night-sky)"
+    }
+    resp = httpx.get(
+        "https://nominatim.openstreetmap.org/search",
+        params=params,
+        headers=headers,
+        timeout=10,
+    )
     resp.raise_for_status()
     results = resp.json()
     if not results:
@@ -95,7 +102,9 @@ def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContex
 
     if lang == "ko" and os.environ.get("VWORLD_API_KEY"):
         try:
-            data = _geocode_vworld(address, "ROAD") or _geocode_vworld(address, "PARCEL")
+            data = _geocode_vworld(address, "ROAD") or _geocode_vworld(
+                address, "PARCEL"
+            )
             if data is not None:
                 point = data["result"]["point"]
                 lng = float(point["x"])
@@ -228,11 +237,19 @@ def _compute_constellation_positions(
         weights = [1.0 / (s.magnitude + 3.0) for s in stars]
         total_w = sum(weights)
         # Circular mean for azimuth
-        sin_sum = sum(w * math.sin(math.radians(s.az_deg)) for w, s in zip(weights, stars))
-        cos_sum = sum(w * math.cos(math.radians(s.az_deg)) for w, s in zip(weights, stars))
+        sin_sum = sum(
+            w * math.sin(math.radians(s.az_deg)) for w, s in zip(weights, stars)
+        )
+        cos_sum = sum(
+            w * math.cos(math.radians(s.az_deg)) for w, s in zip(weights, stars)
+        )
         az_mean = math.degrees(math.atan2(sin_sum / total_w, cos_sum / total_w)) % 360
         alt_mean = sum(w * s.alt_deg for w, s in zip(weights, stars)) / total_w
-        positions.append(ConstellationPosition(name=name, az_deg=round(az_mean, 1), alt_deg=round(alt_mean, 1)))
+        positions.append(
+            ConstellationPosition(
+                name=name, az_deg=round(az_mean, 1), alt_deg=round(alt_mean, 1)
+            )
+        )
 
     return tuple(positions)
 
@@ -262,7 +279,9 @@ def load_constellation_lines() -> tuple[ConstellationLine, ...]:
     return tuple(lines)
 
 
-def run(query: QueryInput, limiting_magnitude: float = 6.5, lang: str = "en") -> SkyData:
+def run(
+    query: QueryInput, limiting_magnitude: float = 6.5, lang: str = "en"
+) -> SkyData:
     """Top-level entry point: takes a QueryInput and returns a SkyData.
 
     Args:

@@ -2,6 +2,7 @@
 
 import datetime
 import random
+from typing import TypedDict
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -10,11 +11,11 @@ from streamlit_js_eval import streamlit_js_eval
 
 load_dotenv()
 
-from thatnightsky.compute import GeocodingError, run
-from thatnightsky.i18n import t
-from thatnightsky.models import QueryInput
-from thatnightsky.narrative import generate_night_description
-from thatnightsky.renderers.svg_2d import render_svg_html
+from thatnightsky.compute import GeocodingError, run  # noqa: E402
+from thatnightsky.i18n import t  # noqa: E402
+from thatnightsky.models import QueryInput  # noqa: E402
+from thatnightsky.narrative import generate_night_description  # noqa: E402
+from thatnightsky.renderers.svg_2d import render_svg_html  # noqa: E402
 
 # --- Language detection (browser-first via streamlit-js-eval) ---
 # navigator.language is read once and cached in session_state.
@@ -64,7 +65,15 @@ if "when_str" not in st.session_state:
 
 _MAX_NARRATIVES_PER_SESSION = 3
 
-_SAMPLE_INPUTS: dict[str, list[dict]] = {
+
+class _SampleInput(TypedDict):
+    address: str
+    date: datetime.date
+    time: datetime.time
+    theme: str
+
+
+_SAMPLE_INPUTS: dict[str, list[_SampleInput]] = {
     "ko": [
         {
             "address": "부산 가야동",
@@ -107,8 +116,10 @@ _SAMPLE_INPUTS: dict[str, list[dict]] = {
     ],
 }
 
-if "default_input" not in st.session_state:
-    st.session_state.default_input = random.choice(_SAMPLE_INPUTS.get(_lang, _SAMPLE_INPUTS["en"]))
+if "default_input" not in st.session_state and "lang" in st.session_state:
+    st.session_state.default_input = random.choice(
+        _SAMPLE_INPUTS.get(_lang, _SAMPLE_INPUTS["en"])
+    )
 
 # --- Dark fullscreen theme CSS (static) ---
 st.markdown(
@@ -475,7 +486,9 @@ if not st.session_state.privacy_agreed:
             """,
             unsafe_allow_html=True,
         )
-        if st.button(t("btn_confirm", _lang), key="privacy_confirm", use_container_width=True):
+        if st.button(
+            t("btn_confirm", _lang), key="privacy_confirm", use_container_width=True
+        ):
             st.session_state.privacy_agreed = True
             st.rerun()
     st.stop()
@@ -489,7 +502,9 @@ if st.session_state.sky_data is not None:
     _date_part = _when[:10]  # YYYY-MM-DD
     _hh_part = _when[11:13]  # HH
     _place_part = st.session_state.sky_data.context.address_display.replace(" ", "_")
-    _theme_part = st.session_state.theme.replace(" ", "_") if st.session_state.theme else ""
+    _theme_part = (
+        st.session_state.theme.replace(" ", "_") if st.session_state.theme else ""
+    )
     _name_parts = [p for p in [_date_part, _hh_part, _place_part, _theme_part] if p]
     png_filename = "_".join(_name_parts) + ".png"
     svg_html = render_svg_html(
@@ -526,17 +541,25 @@ if st.session_state.show_placeholder and st.session_state.sky_data is None:
 # --- Input panel ---
 # Mobile closed state: show toggle button only (input form hidden via CSS)
 # Mobile open state / Desktop: show full input form
+# Guard: skip rendering until lang is resolved and default_input is ready.
+if "default_input" not in st.session_state:
+    st.stop()
+
 if not st.session_state.input_open:
     with st.container(key="bottom_bar"):
         has_sky = st.session_state.sky_data is not None
         bcol1, bcol2 = st.columns(2) if has_sky else (st.columns(1)[0], None)
         with bcol1:
-            if st.button(t("btn_edit", _lang), key="toggle_open", use_container_width=True):
+            if st.button(
+                t("btn_edit", _lang), key="toggle_open", use_container_width=True
+            ):
                 st.session_state.input_open = True
                 st.rerun()
         if bcol2 is not None:
             with bcol2:
-                if st.button(t("btn_save", _lang), key="save_btn", use_container_width=True):
+                if st.button(
+                    t("btn_save", _lang), key="save_btn", use_container_width=True
+                ):
                     st.session_state.save_triggered = True
                     st.rerun()
 else:
@@ -643,4 +666,3 @@ if st.session_state.narrative:
         f"{st.session_state.narrative}</p></div>",
         unsafe_allow_html=True,
     )
-

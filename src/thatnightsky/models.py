@@ -62,4 +62,6 @@ class SkyData:
     stars: tuple[StarRecord, ...]  # After magnitude filter
     constellation_lines: tuple[ConstellationLine, ...]
     limiting_magnitude: float  # Magnitude filter threshold
-    constellation_positions: tuple[ConstellationPosition, ...]  # Used for Claude narrative generation
+    constellation_positions: tuple[
+        ConstellationPosition, ...
+    ]  # Used for Claude narrative generation

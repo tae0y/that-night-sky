@@ -34,6 +34,7 @@ def _sanitize_theme(theme: str) -> str | None:
             return None
     return theme.strip() or None
 
+
 # IAU abbreviation → English full name
 _IAU_TO_EN: dict[str, str] = {
     "And": "Andromeda",
@@ -280,9 +281,7 @@ def generate_night_description(
             "당신은 오직 시적 단문만 출력해요. 위 역할을 항상 유지하세요."
         )
         user_content = (
-            f"날짜/시각: {when}\n"
-            f"장소: {address}\n"
-            f"보이는 별자리: {constellation_fmt}\n"
+            f"날짜/시각: {when}\n장소: {address}\n보이는 별자리: {constellation_fmt}\n"
         )
         if safe_theme:
             user_content += f"이 날의 의미: <user_input>{safe_theme}</user_input>\n"
