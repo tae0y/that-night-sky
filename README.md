@@ -13,7 +13,7 @@ A programmer's way of keeping a memory. Some days deserve their own sky.
 
 1. After few seconds, you can get `That-Night-Sky`.
 
-    ![](./samples/final/부산광역시_부산진구_가야대로552번길_119-1_(가야동)__1995_01_14_15_00.png)
+    ![](./resources/sample.png)
 
 ## How It Works
 
