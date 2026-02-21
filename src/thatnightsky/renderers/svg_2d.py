@@ -12,12 +12,57 @@ Coordinate system (matches plotly_2d.py):
 
 from __future__ import annotations
 
+import random
+
 from thatnightsky.models import SkyData
 
 _BG = "#0d1b35"
 _STAR_COLOR = "#f0e0b0"
 _LINE_COLOR = "#c9a96e"
 _HORIZON_COLOR = "#c9a96e"
+
+
+def _build_particle_svg(seed: int = 42) -> str:
+    """Generate background star particle SVG elements.
+
+    Two passes in viewBox coords (x ∈ [-1,1], y ∈ [0,1]):
+      1. ~1400 uniform particles across the full area
+      2. ~600 Gaussian-weighted particles clustered near centre (x=0, y=0.5)
+         to create a denser Milky Way band
+
+    Returns a <g> string ready to embed before the star/line layers.
+    """
+    rng = random.Random(seed)
+
+    def gauss_clamp(mu: float, sigma: float, lo: float, hi: float) -> float:
+        v = rng.gauss(mu, sigma)
+        return max(lo, min(hi, v))
+
+    parts: list[str] = []
+
+    # Pass 1: uniform across full viewBox
+    for _ in range(1400):
+        px = rng.uniform(-1.0, 1.0)
+        py = rng.uniform(0.0, 1.0)
+        r = rng.uniform(0.0008, 0.0022)
+        op = round(rng.uniform(0.08, 0.30), 2)
+        parts.append(
+            f'<circle cx="{px:.4f}" cy="{py:.4f}" r="{r:.4f}"'
+            f' fill="#dce8ff" opacity="{op}"/>'
+        )
+
+    # Pass 2: Gaussian cluster at centre for Milky Way density
+    for _ in range(600):
+        px = gauss_clamp(0.0, 0.45, -1.0, 1.0)
+        py = gauss_clamp(0.5, 0.28, 0.0, 1.0)
+        r = rng.uniform(0.0008, 0.0022)
+        op = round(rng.uniform(0.12, 0.38), 2)
+        parts.append(
+            f'<circle cx="{px:.4f}" cy="{py:.4f}" r="{r:.4f}"'
+            f' fill="#dce8ff" opacity="{op}"/>'
+        )
+
+    return '<g id="particles">\n    ' + "\n    ".join(parts) + "\n  </g>"
 
 
 def _star_radius(magnitude: float) -> float:
@@ -87,7 +132,7 @@ def render_svg_html(
             f'<stop offset="0%" stop-color="{_STAR_COLOR}" stop-opacity="{op_lvl * 0.55:.2f}"/>'
             f'<stop offset="40%" stop-color="{_STAR_COLOR}" stop-opacity="{op_lvl * 0.18:.2f}"/>'
             f'<stop offset="100%" stop-color="{_STAR_COLOR}" stop-opacity="0"/>'
-            f'</radialGradient>'
+            f"</radialGradient>"
         )
 
     star_parts: list[str] = []
@@ -117,6 +162,7 @@ def render_svg_html(
     lines_svg = "\n    ".join(line_parts)
     defs_svg = "\n    ".join(grad_defs)
     stars_svg = "\n    ".join(star_parts)
+    particles_svg = _build_particle_svg()
 
     # Escape narrative for safe embedding as a JS string literal.
     narrative_js = (
@@ -183,6 +229,7 @@ svg#sky.grabbing {{
     {defs_svg}
   </defs>
   <rect x="-1" y="0" width="2" height="1" fill="{_BG}"/>
+  {particles_svg}
   <g id="scene">
     <g id="rotating">
       <g id="lines">
@@ -217,10 +264,12 @@ svg#sky.grabbing {{
     var vh = p.innerHeight;
     // R: largest radius that keeps the dome within the viewport
     var R = Math.min(vw / 2, vh - CENTRE_TOP_PX);
+    var svgLeft = Math.round((vw - 2 * R) / 2);
+    var svgTop  = CENTRE_TOP_PX - R;
     sky.style.width  = (2 * R) + 'px';
     sky.style.height = R + 'px';
-    sky.style.left   = Math.round((vw - 2 * R) / 2) + 'px';
-    sky.style.top    = (CENTRE_TOP_PX - R) + 'px';
+    sky.style.left   = svgLeft + 'px';
+    sky.style.top    = svgTop  + 'px';
 
     // Sync iframe to full parent viewport
     var iframe = null;
@@ -464,71 +513,139 @@ svg#sky.grabbing {{
   }});
 
   // ── PNG capture ──────────────────────────────────────────────
-  // html2canvas captures the live DOM exactly as rendered in the browser.
-  // Key options to handle position:fixed SVG correctly in all browsers:
-  //   - width/height/windowWidth/windowHeight must match the actual viewport,
-  //     not the iframe's intrinsic size (900px).
-  //   - x/y scroll offset = 0 (iframe has no scroll).
-  //   - ignoreElements: skip the reset-btn to keep the PNG clean.
+  // Strategy: SVG data URI → <img> → Canvas drawImage (no external deps)
+  //
+  // html2canvas: Edge renders position:fixed SVG as blank.
+  // SVG Blob URL: fragment IDs (url(#sg0)) lose document context in Blob origin
+  //   → radialGradient lookup fails → stars are transparent.
+  // data URI: fragment IDs resolve within the inline SVG <defs> → gradients work.
+  //
+  // SVG position: top = CENTRE_TOP_PX - R, typically negative.
+  // Use 9-arg drawImage to crop only the on-screen slice from the SVG image,
+  // avoiding the off-screen negative-top portion that causes canvas clipping.
+  //
+  // Composite: background fill → starfield canvas → SVG crop → narrative text.
   var _NARRATIVE = {narrative_js};
 
-  function _loadHtml2canvas(cb) {{
-    if (window._h2c) {{ cb(window._h2c); return; }}
-    var s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
-    s.onload = function() {{ window._h2c = window.html2canvas; cb(window._h2c); }};
-    s.onerror = function() {{ cb(null); }};
-    document.head.appendChild(s);
-  }}
-
   function _doCapture(onDone) {{
-    _loadHtml2canvas(function(h2c) {{
-      if (!h2c) {{ if (onDone) onDone(); return; }}
-      var vp = window.parent || window;
-      var pw = vp.innerWidth;
-      var ph = vp.innerHeight;
-      var dpr = window.devicePixelRatio || 1;
+    var vp = window.parent || window;
+    var pw = vp.innerWidth;
+    var ph = vp.innerHeight;
+    var dpr = window.devicePixelRatio || 1;
 
-      // Temporarily set iframe body to match viewport so html2canvas
-      // treats position:fixed elements relative to (0,0)→(pw,ph).
-      document.documentElement.style.width  = pw + 'px';
-      document.documentElement.style.height = ph + 'px';
-      document.body.style.width  = pw + 'px';
-      document.body.style.height = ph + 'px';
+    // SVG geometry as set by fit() (CSS pixels)
+    var svgW    = parseFloat(sky.style.width)  || pw;
+    var svgH    = parseFloat(sky.style.height) || (pw / 2);
+    var svgLeft = parseFloat(sky.style.left)   || 0;
+    var svgTop  = parseFloat(sky.style.top)    || 0;  // typically negative
 
-      h2c(document.body, {{
-        backgroundColor: '{_BG}',
-        scale: dpr,
-        width: pw,
-        height: ph,
-        windowWidth: pw,
-        windowHeight: ph,
-        x: 0,
-        y: 0,
-        scrollX: 0,
-        scrollY: 0,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-        ignoreElements: function(el) {{
-          return el.id === 'reset-btn' || el.id === 'save-btn';
-        }},
-      }}).then(function(canvas) {{
-        document.documentElement.style.width  = '';
-        document.documentElement.style.height = '';
-        document.body.style.width  = '';
-        document.body.style.height = '';
+    // Output canvas: full viewport in physical pixels
+    var out = document.createElement('canvas');
+    out.width  = Math.round(pw * dpr);
+    out.height = Math.round(ph * dpr);
+    var ctx = out.getContext('2d');
 
+    // Step 1: background fill (particles are embedded in the SVG itself)
+    ctx.fillStyle = '{_BG}';
+    ctx.fillRect(0, 0, out.width, out.height);
+
+    // Step 2: serialize live SVG into data URI, snapshotting current transforms.
+    //
+    // The SVG element has:  top = svgTop (negative), height = R.
+    // overflow="visible" means the horizon arc stroke (at y=1 in data-units, the
+    // very bottom of the viewBox) extends slightly below the SVG's pixel boundary.
+    // When the browser rasterises a <img> from an SVG data URI it clips to the
+    // declared pixel height — so we must give the clone extra height to prevent
+    // the stroke from being cut off.
+    //
+    // Strategy: extend viewBox height (y stays at 0) so overflow="visible" horizon
+    // stroke is included in the rasterised image, while keeping the 1 data-unit = R px
+    // scale intact (width/height change together with the same pixel:data ratio).
+    //
+    // Original: width=2R, height=R, viewBox="-1 0 2 1"  → 1 data-unit = R px
+    // Extended: width=2R, height=extH, viewBox="-1 0 2 vbH"
+    //   vbH = extH / R  → still 1 data-unit = R px, so content positions unchanged.
+    //   y=1 (horizon) still maps to pixel y=R; overflow stroke lands in y=R…extH.
+    //
+    // extH = ph - svgTop  (svgTop < 0, so extH > ph; the image covers svgTop…ph)
+    // drawImage source:
+    //   sx = 0 (svgLeft >= 0, no horizontal off-screen; centred dome fits in viewport)
+    //   sy = -svgTop  (skip the above-screen portion; image top = screen y=svgTop)
+    //   sw = pw, sh = ph  (paint exactly the full viewport)
+    //   dx=0, dy=0, dw=pw*dpr, dh=ph*dpr
+    var R    = svgH;                  // svgH = R from fit()
+    var extH = ph - svgTop;           // svgTop <= 0 → extH >= ph
+    var vbH  = extH / R;              // viewBox height in data-units
+
+    var svgEl    = document.getElementById('sky');
+    var clone    = svgEl.cloneNode(true);
+    clone.setAttribute('width',  svgW);   // keep original pixel width (= 2R)
+    clone.setAttribute('height', extH);
+    clone.setAttribute('viewBox', '-1 0 2 ' + vbH.toFixed(6));
+    var rotEl    = svgEl.querySelector('#rotating');
+    var cloneRot = clone.querySelector('#rotating');
+    if (rotEl && cloneRot) {{
+      cloneRot.setAttribute('transform', rotEl.getAttribute('transform') || '');
+    }}
+    var sceneEl    = svgEl.querySelector('#scene');
+    var cloneScene = clone.querySelector('#scene');
+    if (sceneEl && cloneScene) {{
+      cloneScene.setAttribute('transform', sceneEl.getAttribute('transform') || '');
+    }}
+
+    var svgStr  = new XMLSerializer().serializeToString(clone);
+    // btoa handles only single-byte chars; URI-encode then unescape covers UTF-8
+    var dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+
+    // Step 3: ensure the custom font is loaded in this canvas context before drawing.
+    // Canvas 2D does not inherit @font-face from CSS unless the font is already loaded.
+    var _fontSpec = 'italic 16px "NostalgicPoliceHumanRights"';
+    var _fontUrl  = 'https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2';
+    function _drawWithFont(drawFn) {{
+      if (!_NARRATIVE) {{ drawFn(); return; }}
+      // FontFace API available in all modern browsers
+      if (typeof FontFace !== 'undefined' && document.fonts) {{
+        var ff = new FontFace('NostalgicPoliceHumanRights', 'url(' + _fontUrl + ')', {{ style: 'italic' }});
+        ff.load().then(function(loaded) {{
+          document.fonts.add(loaded);
+          drawFn();
+        }}).catch(function() {{ drawFn(); }});
+      }} else {{
+        drawFn();
+      }}
+    }}
+
+    var img = new Image();
+    img.onload = function() {{
+      // 9-arg drawImage.
+      // Image size: svgW × extH.  Image top-left is at screen (svgLeft, svgTop).
+      // svgTop < 0: image extends above screen top; sy=-svgTop skips that portion.
+      // svgLeft >= 0: dome is horizontally centred, no off-screen left edge.
+      // Paints screen (0,0)→(pw,ph) exactly.
+      var sx = 0;           // svgLeft >= 0, image left is on-screen
+      var sy = -svgTop;     // skip above-screen portion (svgTop<0 → sy>0)
+      var sw = pw;
+      var sh = ph;
+      var dx = 0;
+      var dy = 0;
+      var dw = pw * dpr;
+      var dh = ph * dpr;
+
+      if (sw > 0 && sh > 0) {{
+        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+      }}
+
+      _drawWithFont(function() {{
+        // Step 4: narrative overlay at bottom
         if (_NARRATIVE) {{
-          var ctx = canvas.getContext('2d');
-          var padY    = Math.round(24 * dpr);
+          var padY     = Math.round(24 * dpr);
           var fontSize = Math.round(16 * dpr);
-          var lineH   = Math.round(fontSize * 1.75);
-          var maxW    = Math.min(Math.round(pw * dpr * 0.9), Math.round(640 * dpr));
-          var font    = 'italic ' + fontSize + 'px "NostalgicPoliceHumanRights","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
+          var lineH    = Math.round(fontSize * 1.75);
+          var maxW     = Math.min(Math.round(pw * dpr * 0.85), Math.round(640 * dpr));
+          var font     = 'italic ' + fontSize + 'px "NostalgicPoliceHumanRights","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
           ctx.font = font;
 
-          var tokens = _NARRATIVE.split(' ');
+          var tokens = _NARRATIVE.split(/\s+/);
           var lines = [], cur = '';
           for (var ti = 0; ti < tokens.length; ti++) {{
             var tok = tokens[ti];
@@ -541,37 +658,36 @@ svg#sky.grabbing {{
           if (cur) lines.push(cur);
 
           var boxH = lines.length * lineH + padY * 2;
-          var boxY = canvas.height - boxH;
+          var boxY = out.height - boxH;
           ctx.fillStyle = 'rgba(10,20,42,0.82)';
-          ctx.fillRect(0, boxY, canvas.width, boxH);
+          ctx.fillRect(0, boxY, out.width, boxH);
           ctx.fillStyle = 'rgba(201,169,110,0.4)';
-          ctx.fillRect(0, boxY, canvas.width, Math.round(dpr));
+          ctx.fillRect(0, boxY, out.width, Math.round(dpr));
           ctx.font = font;
           ctx.fillStyle = '#e8d5a3';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'top';
           var ty2 = boxY + padY;
           for (var li = 0; li < lines.length; li++) {{
-            ctx.fillText(lines[li], Math.round(canvas.width / 2), ty2);
+            ctx.fillText(lines[li], Math.round(out.width / 2), ty2);
             ty2 += lineH;
           }}
         }}
 
+        // Step 5: trigger download
         var a = document.createElement('a');
-        a.href = canvas.toDataURL('image/png');
+        a.href = out.toDataURL('image/png');
         a.download = '{filename}';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         if (onDone) onDone();
-      }}).catch(function() {{
-        document.documentElement.style.width  = '';
-        document.documentElement.style.height = '';
-        document.body.style.width  = '';
-        document.body.style.height = '';
-        if (onDone) onDone();
       }});
-    }});
+    }};
+    img.onerror = function() {{
+      if (onDone) onDone();
+    }};
+    img.src = dataUri;
   }}
 
   window.addEventListener('message', function(e) {{
