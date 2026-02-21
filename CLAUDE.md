@@ -46,6 +46,8 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - `_ROOT` is resolved as `Path(__file__).parent.parent.parent` (i.e., repo root)
 - Public functions: `run()` (top-level), `geocode_address()`, `compute_sky_data()`, `load_constellation_lines()` — all callable independently
 
+**`i18n.py`** — Two-language (ko/en) translation helper. `t(key, lang)` looks up `_STRINGS` dict, falls back to `"en"` then to the key. Language is detected once via `navigator.language` JS eval and cached in `st.session_state.lang`.
+
 **`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
 - `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
 - `_IAU_TO_KO`: IAU abbreviation → Korean name mapping dict (e.g. `"Ori"` → `"오리온"`); up to 10 visible constellations passed to the prompt
