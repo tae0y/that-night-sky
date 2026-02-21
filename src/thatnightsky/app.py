@@ -50,23 +50,11 @@ _MAX_NARRATIVES_PER_SESSION = 3
 
 _SAMPLE_INPUTS = [
     {
-        "address": "서울 종로",
-        "date": datetime.date(1900, 1, 1),
+        "address": "부산 가야동",
+        "date": datetime.date(1995, 1, 15),
         "time": datetime.time(6, 0),
         "theme": "생일",
-    },
-    {
-        "address": "부산 가야동",
-        "date": datetime.date(2000, 10, 1),
-        "time": datetime.time(20, 0),
-        "theme": "첫만남",
-    },
-    {
-        "address": "경기 김포",
-        "date": datetime.date(2022, 11, 25),
-        "time": datetime.time(5, 0),
-        "theme": "아버지기일",
-    },
+    }
 ]
 
 if "default_input" not in st.session_state:
