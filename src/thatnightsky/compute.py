@@ -1,5 +1,6 @@
 """Astronomy computation layer — geocoding, skyfield calculations, and constellation data loading."""
 
+import logging
 import math
 import os
 from collections import defaultdict
@@ -111,7 +112,7 @@ def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContex
                 lat = float(point["y"])
                 address_display = data["refined"]["text"]
         except GeocodingError:
-            pass  # fall through to Nominatim
+            logging.warning("vworld geocoding failed; falling back to Nominatim", exc_info=True)
 
     if lat is None:
         result = _geocode_nominatim(address)

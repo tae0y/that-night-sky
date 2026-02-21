@@ -502,12 +502,7 @@ if st.session_state.sky_data is not None:
     _when = st.session_state.when_str  # "YYYY-MM-DD HH:MM"
     _date_part = _when[:10]  # YYYY-MM-DD
     _hh_part = _when[11:13]  # HH
-    _place_part = st.session_state.sky_data.context.address_display.replace(" ", "_")
-    _theme_part = (
-        st.session_state.theme.replace(" ", "_") if st.session_state.theme else ""
-    )
-    _name_parts = [p for p in [_date_part, _hh_part, _place_part, _theme_part] if p]
-    png_filename = "_".join(_name_parts) + ".png"
+    png_filename = f"{_date_part}_{_hh_part}00.png"
     svg_html = render_svg_html(
         st.session_state.sky_data,
         filename=png_filename,
@@ -661,11 +656,12 @@ if st.session_state.error_msg:
 
 # --- Narrative text ---
 if st.session_state.narrative:
+    _narrative_safe = html.escape(st.session_state.narrative).replace("\n", "<br>")
     st.markdown(
         f"<div class='overlay-box' style='position:fixed;bottom:calc(var(--input-h,3rem) + 1.9rem);left:0;right:0;z-index:50;max-height:calc((1.8em * 4 + 2.4rem) * 1.2);overflow-y:auto;box-sizing:border-box;word-break:keep-all;overflow-wrap:break-word;"
         f"background:linear-gradient(to bottom,rgba(8,16,36,0) 0%,rgba(10,20,45,0.72) 18%,rgba(12,24,52,0.88) 45%,rgba(13,27,55,0.96) 100%);"
         f"border-top:1px solid rgba(201,169,110,0.12);'>"
         f"<p class='narrative-text' style='width:min(90%,640px);margin:0 auto;text-align:center;word-break:keep-all;overflow-wrap:break-word;'>"
-        f"{st.session_state.narrative}</p></div>",
+        f"{_narrative_safe}</p></div>",
         unsafe_allow_html=True,
     )
