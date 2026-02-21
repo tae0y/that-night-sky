@@ -1,6 +1,7 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
 import datetime
+import html
 import random
 from typing import TypedDict
 
@@ -616,7 +617,7 @@ else:
             st.session_state.sky_data = sky_data
         except GeocodingError as e:
             loading_placeholder.empty()
-            st.session_state.error_msg = t("error_address", _lang).format(error=e)
+            st.session_state.error_msg = t("error_address", _lang).format(error=html.escape(str(e)))
             st.rerun()
 
         if st.session_state.sky_data is not None:
