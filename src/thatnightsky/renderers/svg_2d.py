@@ -12,6 +12,7 @@ Coordinate system (matches plotly_2d.py):
 
 from __future__ import annotations
 
+from thatnightsky.i18n import t
 from thatnightsky.models import SkyData
 
 _BG = "#0d1b35"
@@ -206,8 +207,8 @@ svg#sky.grabbing {{
     <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.005" stroke-opacity="0.85"/>
   </g>
 </svg>
-<button id="reset-btn">↺ {"초기화" if lang == "ko" else "Reset"}</button>
-<button id="save-btn">↓ {"저장" if lang == "ko" else "Save"}</button>
+<button id="reset-btn">{t("svg_btn_reset", lang)}</button>
+<button id="save-btn">{t("svg_btn_save", lang)}</button>
 <script>
 (function() {{
   // ── iframe + SVG fit ─────────────────────────────────────────
