@@ -702,7 +702,7 @@ svg#sky.grabbing {{
           var font     = 'italic ' + fontSize + 'px "NostalgicPoliceHumanRights","Apple SD Gothic Neo","Malgun Gothic",sans-serif';
           ctx.font = font;
 
-          var tokens = _NARRATIVE.split(/\s+/);
+          var tokens = _NARRATIVE.split(/\\s+/);
           var lines = [], cur = '';
           for (var ti = 0; ti < tokens.length; ti++) {{
             var tok = tokens[ti];

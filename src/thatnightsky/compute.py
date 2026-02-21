@@ -123,6 +123,7 @@ def compute_sky_data(
     stars_df = _stars_df.copy()
     bright = stars_df["magnitude"] <= limiting_magnitude
     stars_df = stars_df[bright]
+    stars_df = stars_df.dropna(subset=["ra_degrees", "dec_degrees"])
 
     ground = _eph["earth"] + wgs84.latlon(
         latitude_degrees=context.lat, longitude_degrees=context.lng
