@@ -2,7 +2,7 @@
 
 A programmer's way of keeping a memory. Some days deserve their own sky.
 
-> Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
+Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
 
 ## Getting Started
 
@@ -13,9 +13,11 @@ A programmer's way of keeping a memory. Some days deserve their own sky.
 
 1. Enter Korean address, date/time, and its meaning.
 
-1. After few seconds, you can get `That-Night-Sky`.
+1. In a few seconds, your `That-Night-Sky` is ready.
 
     ![](./resources/sample.png)
+
+    > To deploy the app with your own, see [docs/README.md](docs/README.md) — Docker, Cloudflare Tunnel, and Streamlit Cloud are covered.
 
 ## How It Works
 
