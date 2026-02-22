@@ -6,6 +6,7 @@ __pycache__/
 __except/*
 .tnsenv/*
 
+localdocs
 localdocs/
 
 .env
