@@ -4,6 +4,8 @@ A programmer's way of keeping a memory. Some days deserve their own sky.
 
 Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
 
+> `2026-02-26` Sorry, demo service is currently down due to a network configuration issue.😂 Will be resolved after work hours today.
+
 ## Getting Started
 
 1. Get the code, and run it.
