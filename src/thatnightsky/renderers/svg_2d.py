@@ -663,16 +663,23 @@ svg#sky.grabbing {{
     var _fontUrl  = 'https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2';
     function _drawWithFont(drawFn) {{
       if (!_NARRATIVE) {{ drawFn(); return; }}
-      // FontFace API available in all modern browsers
-      if (typeof FontFace !== 'undefined' && document.fonts) {{
-        var ff = new FontFace('NostalgicPoliceHumanRights', 'url(' + _fontUrl + ')', {{ style: 'italic' }});
-        ff.load().then(function(loaded) {{
-          document.fonts.add(loaded);
-          drawFn();
-        }}).catch(function() {{ drawFn(); }});
-      }} else {{
-        drawFn();
-      }}
+      if (typeof FontFace === 'undefined' || !document.fonts) {{ drawFn(); return; }}
+      // If the font is already loaded (e.g. used for page display), skip network fetch
+      if (document.fonts.check(_fontSpec)) {{ drawFn(); return; }}
+      // Not yet loaded: fetch with a 3s timeout so slow mobile networks fall back
+      // to system fonts rather than blocking the download indefinitely
+      var done = false;
+      function _proceed() {{ if (!done) {{ done = true; drawFn(); }} }}
+      var timer = setTimeout(_proceed, 3000);
+      var ff = new FontFace('NostalgicPoliceHumanRights', 'url(' + _fontUrl + ')', {{ style: 'italic' }});
+      ff.load().then(function(loaded) {{
+        document.fonts.add(loaded);
+        clearTimeout(timer);
+        _proceed();
+      }}).catch(function() {{
+        clearTimeout(timer);
+        _proceed();
+      }});
     }}
 
     var img = new Image();
@@ -734,14 +741,20 @@ svg#sky.grabbing {{
           }}
         }}
 
-        // Step 5: trigger download
-        var a = document.createElement('a');
-        a.href = out.toDataURL('image/png');
-        a.download = '{filename}';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        if (onDone) onDone();
+        // Step 5: trigger download (toBlob is async and avoids main-thread blocking
+        // from base64 encoding a large canvas — critical for mobile performance)
+        out.toBlob(function(blob) {{
+          if (!blob) {{ if (onDone) onDone(); return; }}
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = '{filename}';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function() {{ URL.revokeObjectURL(url); }}, 10000);
+          if (onDone) onDone();
+        }}, 'image/png');
       }});
     }};
     img.onerror = function() {{
