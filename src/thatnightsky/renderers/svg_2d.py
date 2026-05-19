@@ -193,7 +193,6 @@ svg#sky.grabbing {{
 #reset-btn:hover {{
     background: rgba(201,169,110,0.15);
 }}
-#save-btn {{ display: none; }}
 </style>
 </head>
 <body>
@@ -219,7 +218,6 @@ svg#sky.grabbing {{
   </g>
 </svg>
 <button id="reset-btn">{t("svg_btn_reset", lang)}</button>
-<button id="save-btn">{t("svg_btn_save", lang)}</button>
 <script>
 (function() {{
   // ── iframe + SVG fit ─────────────────────────────────────────
@@ -335,70 +333,6 @@ svg#sky.grabbing {{
   requestAnimationFrame(function() {{
     requestAnimationFrame(function() {{
       fit();
-      // Watch parent DOM for tns-save-trigger marker injected by Streamlit
-      // when the save button is clicked. chart iframe has allow-same-origin
-      // so p.document is accessible.
-      try {{
-        // tns-save-trigger is always in the DOM when sky_data exists.
-        // data-seq=0 means no save yet; seq>=1 means a save was requested.
-        // Strategy: watch for attribute changes on the trigger node (seq increments),
-        // and also handle the case where the node is added after iframe loads.
-        // Initialise _lastSeq from the current data-seq so a seq already in the
-        // DOM when this iframe loads is treated as "already handled".
-        // Only a seq that increments *after* this iframe loaded triggers capture.
-        var _initEl = p.document.getElementById('tns-save-trigger');
-        var _lastSeq = _initEl ? parseInt(_initEl.getAttribute('data-seq') || '0', 10) : 0;
-
-        function _checkTrigger() {{
-          var el = p.document.getElementById('tns-save-trigger');
-          if (!el) return;
-          var seq = parseInt(el.getAttribute('data-seq') || '0', 10);
-          if (seq > _lastSeq) {{
-            _lastSeq = seq;
-            // Hide Streamlit bottom toolbar before capture, restore after
-            var _hidden = [];
-            try {{
-              var _selectors = [
-                '[data-testid="stBottom"]',
-                '[data-testid="stStatusWidget"]',
-                '[data-testid="stToolbar"]'
-              ];
-              for (var si = 0; si < _selectors.length; si++) {{
-                var _els = p.document.querySelectorAll(_selectors[si]);
-                for (var ei = 0; ei < _els.length; ei++) {{
-                  _hidden.push({{ el: _els[ei], vis: _els[ei].style.visibility }});
-                  _els[ei].style.visibility = 'hidden';
-                }}
-              }}
-            }} catch(e) {{}}
-            _doCapture(function() {{
-              for (var hi = 0; hi < _hidden.length; hi++) {{
-                _hidden[hi].el.style.visibility = _hidden[hi].vis;
-              }}
-            }});
-          }}
-        }}
-
-        var mo = new MutationObserver(function(records) {{
-          for (var ri = 0; ri < records.length; ri++) {{
-            var r = records[ri];
-            // attribute change on the trigger node itself
-            if (r.type === 'attributes' && r.target.id === 'tns-save-trigger') {{
-              _checkTrigger(); return;
-            }}
-            // node added: trigger node newly inserted (e.g. first chart load)
-            var nodes = r.addedNodes;
-            for (var ni = 0; ni < nodes.length; ni++) {{
-              var n = nodes[ni];
-              if ((n.id === 'tns-save-trigger') ||
-                  (n.querySelector && n.querySelector('#tns-save-trigger'))) {{
-                _checkTrigger(); return;
-              }}
-            }}
-          }}
-        }});
-        mo.observe(p.document.body, {{ childList: true, subtree: true, attributes: true, attributeFilter: ['data-seq'] }});
-      }} catch(e) {{}}
     }});
   }});
   p.addEventListener('resize', fit);
@@ -591,12 +525,60 @@ svg#sky.grabbing {{
     applyTransform();
   }});
 
-  // ── save button ──────────────────────────────────────────────
-  var saveBtn = document.getElementById('save-btn');
-  saveBtn.addEventListener('click', function() {{
-    saveBtn.disabled = true;
-    _doCapture(function() {{ saveBtn.disabled = false; }});
-  }});
+  // ── save button (injected into parent document) ──────────────
+  // TODO: Re-enable once mobile download is reliable across target browsers.
+  // Samsung Browser blocks a.click() from async callbacks (gesture stack lost after
+  // img.onload → toDataURL chain). Disabled until a workaround is found.
+  // (function() {{  // <-- uncomment to re-enable
+  if (false) (function() {{
+    var BTN_ID = 'tns-save-btn';
+    if (p.document.getElementById(BTN_ID)) return; // already injected (hot-reload)
+    var btn = p.document.createElement('button');
+    btn.id = BTN_ID;
+    btn.textContent = '{t("svg_btn_save", lang)}';
+    var s = btn.style;
+    s.position = 'fixed';
+    s.bottom = '1rem';
+    s.left = '1rem';
+    s.background = 'rgba(13,27,53,0.85)';
+    s.color = '#c9a96e';
+    s.border = '1px solid rgba(201,169,110,0.4)';
+    s.borderRadius = '6px';
+    s.padding = '0.4rem 0.9rem';
+    s.fontSize = '0.85rem';
+    s.cursor = 'pointer';
+    s.zIndex = '99999';
+    s.userSelect = 'none';
+    p.document.body.appendChild(btn);
+
+    var _capturing = false;
+    btn.addEventListener('click', function() {{
+      if (_capturing) return;
+      _capturing = true;
+      btn.disabled = true;
+      btn.textContent = '...';
+      _doCapture(function(dataUrl) {{
+        _capturing = false;
+        if (dataUrl) {{
+          btn.textContent = '{t("svg_btn_download", lang)}';
+          btn.disabled = false;
+          btn.addEventListener('click', function dl() {{
+            var a = p.document.createElement('a');
+            a.href = dataUrl;
+            a.download = '{filename}';
+            p.document.body.appendChild(a);
+            a.click();
+            p.document.body.removeChild(a);
+            btn.textContent = '{t("svg_btn_save", lang)}';
+            btn.removeEventListener('click', dl);
+          }});
+        }} else {{
+          btn.textContent = '{t("svg_btn_save", lang)}';
+          btn.disabled = false;
+        }}
+      }});
+    }});
+  }})(); // end save button IIFE
 
   // ── PNG capture ──────────────────────────────────────────────
   // Strategy: SVG data URI → <img> → Canvas drawImage (no external deps)
@@ -714,6 +696,18 @@ svg#sky.grabbing {{
     }}
 
     var img = new Image();
+    // Guard: if onload/onerror never fires (Samsung browser SVG data URI hang),
+    // fall through after 8 s so UI is never permanently frozen.
+    var _imgDone = false;
+    var _imgTimer = setTimeout(function() {{
+      if (!_imgDone) {{ _imgDone = true; if (onDone) onDone(null); }}
+    }}, 8000);
+    function _finishImg(drawCb) {{
+      if (_imgDone) return;
+      clearTimeout(_imgTimer);
+      _imgDone = true;
+      if (drawCb) drawCb();
+    }}
     img.onload = function() {{
       // 9-arg drawImage.
       // Image size: svgW × extH.  Image top-left is at screen (svgLeft, svgTop).
@@ -729,6 +723,7 @@ svg#sky.grabbing {{
       var dw = sw * dpr;
       var dh = ph * dpr;
 
+      _finishImg(function() {{
       if (sw > 0 && sh > 0) {{
         ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
       }}
@@ -772,32 +767,20 @@ svg#sky.grabbing {{
           }}
         }}
 
-        // Step 5: trigger download (toBlob is async and avoids main-thread blocking
-        // from base64 encoding a large canvas — critical for mobile performance)
-        out.toBlob(function(blob) {{
-          if (!blob) {{ if (onDone) onDone(); return; }}
-          var url = URL.createObjectURL(blob);
-          var a = document.createElement('a');
-          a.href = url;
-          a.download = '{filename}';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(function() {{ URL.revokeObjectURL(url); }}, 10000);
-          if (onDone) onDone();
-        }}, 'image/png');
+        // Step 5: pass the data URL to the caller so the save button can
+        // become a real <a download> link on the next user tap.
+        var dataUrl = null;
+        try {{ dataUrl = out.toDataURL('image/png'); }} catch(e) {{}}
+        if (onDone) onDone(dataUrl);
       }});
+      }}); // close _finishImg
     }};
     img.onerror = function() {{
-      if (onDone) onDone();
+      _finishImg(function() {{ if (onDone) onDone(null); }});
     }};
     img.src = dataUri;
   }}
 
-  window.addEventListener('message', function(e) {{
-    if (!e.data || e.data.type !== 'tns_save') return;
-    _doCapture(null);
-  }});
 }})();
 </script>
 </body>

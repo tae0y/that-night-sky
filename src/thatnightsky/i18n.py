@@ -81,6 +81,10 @@ _STRINGS: dict[str, dict[str, str]] = {
         "ko": "↓ 저장",
         "en": "↓ Save",
     },
+    "svg_btn_download": {
+        "ko": "↓ 다운로드",
+        "en": "↓ Download",
+    },
     "svg_filename": {
         "ko": "그날밤하늘.png",
         "en": "that-night-sky.png",
