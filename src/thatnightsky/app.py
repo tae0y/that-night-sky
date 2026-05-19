@@ -1,8 +1,10 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
+import base64
 import datetime
 import html
 import random
+from pathlib import Path
 from typing import TypedDict
 
 import streamlit as st
@@ -123,18 +125,21 @@ if "default_input" not in st.session_state and "lang" in st.session_state:
     )
 
 # --- Dark fullscreen theme CSS (static) ---
+_FONT_PATH = Path(__file__).parent.parent.parent / "resources" / "NostalgicPoliceHumanRights.ttf"
+_FONT_SRC = (
+    f"url('data:font/ttf;base64,{base64.b64encode(_FONT_PATH.read_bytes()).decode()}') format('truetype')"
+    if _FONT_PATH.exists()
+    else "url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2') format('woff2')"
+)
+st.markdown(
+    f"<style>@font-face {{ font-family: 'NostalgicPoliceHumanRights'; src: {_FONT_SRC}; font-weight: normal; font-display: block; }}</style>",
+    unsafe_allow_html=True,
+)
 st.markdown(
     """
     <style>
     /* Hide streamlit_js_eval invisible iframe */
     iframe[src*="streamlit_js_eval"] { display: none !important; }
-    /* Custom font */
-    @font-face {
-        font-family: 'NostalgicPoliceHumanRights';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2') format('woff2');
-        font-weight: normal;
-        font-display: swap;
-    }
     html, body, * {
         font-family: 'NostalgicPoliceHumanRights', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
     }
@@ -504,11 +509,15 @@ if st.session_state.sky_data is not None:
     _date_part = _when[:10]  # YYYY-MM-DD
     _hh_part = _when[11:13]  # HH
     png_filename = f"{_date_part}_{_hh_part}00.png"
+    _font_b64 = (
+        base64.b64encode(_FONT_PATH.read_bytes()).decode() if _FONT_PATH.exists() else ""
+    )
     svg_html = render_svg_html(
         st.session_state.sky_data,
         filename=png_filename,
         narrative=st.session_state.narrative or "",
         lang=_lang,
+        font_b64=_font_b64,
     )
     chart_placeholder.empty()
     # height=900: initial iframe height Streamlit requires (hidden if 0).

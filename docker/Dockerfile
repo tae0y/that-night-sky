@@ -23,7 +23,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/app/.venv/bin:$PATH"
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
+        libcairo2 \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 1000 appuser \
     && useradd --uid 1000 --gid appuser --no-create-home appuser

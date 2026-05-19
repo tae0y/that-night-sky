@@ -39,6 +39,7 @@ def render_svg_html(
     filename: str = "that-night-sky.png",
     narrative: str = "",
     lang: str = "en",
+    font_b64: str = "",
 ) -> str:
     """Return a self-contained HTML page with an SVG star chart.
 
@@ -139,6 +140,16 @@ def render_svg_html(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
+@font-face {{
+    font-family: 'NostalgicPoliceHumanRights';
+    src: {
+        f"url('data:font/ttf;base64,{font_b64}') format('truetype')"
+        if font_b64
+        else "url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2') format('woff2')"
+    };
+    font-weight: normal;
+    font-display: block;
+}}
 * {{ margin: 0; padding: 0; box-sizing: border-box; }}
 html, body {{
     width: 100%;
@@ -344,7 +355,27 @@ svg#sky.grabbing {{
           var seq = parseInt(el.getAttribute('data-seq') || '0', 10);
           if (seq > _lastSeq) {{
             _lastSeq = seq;
-            _doCapture(null);
+            // Hide Streamlit bottom toolbar before capture, restore after
+            var _hidden = [];
+            try {{
+              var _selectors = [
+                '[data-testid="stBottom"]',
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stToolbar"]'
+              ];
+              for (var si = 0; si < _selectors.length; si++) {{
+                var _els = p.document.querySelectorAll(_selectors[si]);
+                for (var ei = 0; ei < _els.length; ei++) {{
+                  _hidden.push({{ el: _els[ei], vis: _els[ei].style.visibility }});
+                  _els[ei].style.visibility = 'hidden';
+                }}
+              }}
+            }} catch(e) {{}}
+            _doCapture(function() {{
+              for (var hi = 0; hi < _hidden.length; hi++) {{
+                _hidden[hi].el.style.visibility = _hidden[hi].vis;
+              }}
+            }});
           }}
         }}
 
@@ -582,6 +613,16 @@ svg#sky.grabbing {{
   // Composite: background fill → starfield canvas → SVG crop → narrative text.
   var _NARRATIVE = {narrative_js};
 
+  // Eagerly trigger font loading once at IIFE init.
+  // @font-face is declared with a data URI in this document's <style>, so
+  // document.fonts.load() decodes it immediately — no network round-trip.
+  // Cached as a module-level promise so repeated saves resolve instantly.
+  var _fontSpec = 'italic 16px "NostalgicPoliceHumanRights"';
+  var _tnsFontReady = (function() {{
+    if (!_NARRATIVE || typeof FontFace === 'undefined' || !document.fonts) return Promise.resolve();
+    return document.fonts.load(_fontSpec).catch(function() {{}});
+  }})();
+
   function _doCapture(onDone) {{
     var vp = window.parent || window;
     var pw = vp.innerWidth;
@@ -657,23 +698,13 @@ svg#sky.grabbing {{
     // btoa handles only single-byte chars; URI-encode then unescape covers UTF-8
     var dataUri = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
 
-    // Step 3: ensure the custom font is loaded in this canvas context before drawing.
-    // Canvas 2D does not inherit @font-face from CSS unless the font is already loaded.
-    var _fontSpec = 'italic 16px "NostalgicPoliceHumanRights"';
-    var _fontUrl  = 'https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2';
+    // Step 3: draw with custom font (loaded eagerly at init; _tnsFontReady already resolving)
     function _drawWithFont(drawFn) {{
       if (!_NARRATIVE) {{ drawFn(); return; }}
-      if (typeof FontFace === 'undefined' || !document.fonts) {{ drawFn(); return; }}
-      // If the font is already loaded (e.g. used for page display), skip network fetch
-      if (document.fonts.check(_fontSpec)) {{ drawFn(); return; }}
-      // Not yet loaded: fetch with a 3s timeout so slow mobile networks fall back
-      // to system fonts rather than blocking the download indefinitely
       var done = false;
       function _proceed() {{ if (!done) {{ done = true; drawFn(); }} }}
-      var timer = setTimeout(_proceed, 3000);
-      var ff = new FontFace('NostalgicPoliceHumanRights', 'url(' + _fontUrl + ')', {{ style: 'italic' }});
-      ff.load().then(function(loaded) {{
-        document.fonts.add(loaded);
+      var timer = setTimeout(_proceed, 4000);
+      _tnsFontReady.then(function() {{
         clearTimeout(timer);
         _proceed();
       }}).catch(function() {{
