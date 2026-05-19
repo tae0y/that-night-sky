@@ -290,6 +290,7 @@ st.markdown(
         transition: opacity 0.6s ease-out;
     }
     </style>
+    <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "770c1f0e7d5543d69bb862413a11a4c5"}'></script><!-- End Cloudflare Web Analytics -->
     <script>
     function tnsWatchOverlay() {
         var ob = new MutationObserver(function(ms) {
