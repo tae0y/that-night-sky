@@ -29,6 +29,7 @@ services:
     env_file: ../.env
     environment:
       - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+      - TZ=Asia/Seoul
     networks:
       - internal
     restart: unless-stopped
