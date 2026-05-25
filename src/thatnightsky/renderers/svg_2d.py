@@ -213,8 +213,12 @@ svg#sky.grabbing {{
       </g>
     </g>
     <!-- horizon: wide glow stroke + sharp gold line -->
-    <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.018" stroke-opacity="0.12"/>
-    <path d="{horizon_path}" fill="none" stroke="{_HORIZON_COLOR}" stroke-width="0.005" stroke-opacity="0.85"/>
+    <path d="{horizon_path}" fill="none" stroke="{
+        _HORIZON_COLOR
+    }" stroke-width="0.018" stroke-opacity="0.12"/>
+    <path d="{horizon_path}" fill="none" stroke="{
+        _HORIZON_COLOR
+    }" stroke-width="0.005" stroke-opacity="0.85"/>
   </g>
 </svg>
 <button id="reset-btn">{t("svg_btn_reset", lang)}</button>

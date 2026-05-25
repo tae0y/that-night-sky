@@ -4,23 +4,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Streamlit web app that renders an interactive star chart for a given date and location. Enter a Korean address, and the app resolves coordinates via vworld API, computes celestial positions with skyfield, and generates a poetic narrative using the Claude API.
+An interactive star chart app for a given date and location.  
+Enter a Korean (or international) address and a datetime; the app resolves coordinates, computes celestial positions with skyfield, and generates a poetic narrative using the Claude API.
+
+**Stack:** FastAPI (Python) backend + React/Vite (TypeScript) frontend.
+
+---
 
 ## Run
 
 ```shell
-# Streamlit app (main entry point)
-uv run streamlit run src/thatnightsky/app.py
+# FastAPI backend (port 8000)
+uv run uvicorn thatnightsky.api.main:app --reload --port 8000
 
-# Legacy static PNG script
-uv run python src/thatnightsky/starchart.py
+# React frontend (port 5173, proxies /api → 8000)
+cd frontend && npm run dev
 ```
 
 ## Deploy (Docker + Cloudflare Tunnel)
 
 ```shell
-# Build and start (always pass --env-file; CLOUDFLARE_TUNNEL_TOKEN lives in .env at repo root,
-# but compose files are under docker/ so Docker Compose won't auto-load it otherwise)
+# Build and start (always pass --env-file)
 docker compose -f docker/docker-compose.yml --env-file .env up -d --build
 
 # Restart without rebuild
@@ -38,48 +42,102 @@ VWORLD_API_KEY=...       # Korean Spatial Information Open Platform (https://www
 ANTHROPIC_API_KEY=...    # Claude API (used for narrative text generation)
 ```
 
+---
+
 ## Architecture
 
-`src/thatnightsky/` contains all code including the Streamlit entry point (`app.py`).
+```
+src/thatnightsky/
+├── api/
+│   ├── main.py          # FastAPI app with CORS, mounts routes
+│   ├── schemas.py       # Pydantic request/response models
+│   └── routes/
+│       ├── sky.py       # POST /api/sky — geocode + compute
+│       └── narrative.py # POST /api/narrative — Claude prose
+├── models.py            # Frozen dataclasses (QueryInput, SkyData, …)
+├── compute.py           # Geocoding + skyfield astronomy
+├── narrative.py         # Claude API narrative generation
+├── i18n.py              # ko/en translation helper (backend only)
+└── renderers/
+    ├── svg_2d.py        # SVG renderer (used for PNG export endpoint, future)
+    ├── plotly_2d.py     # Unused — kept for reference
+    └── static.py        # Matplotlib PNG renderer
 
-Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.render_*()` → HTML string (SVG+JS)
+frontend/src/
+├── App.tsx              # Root component — state management
+├── api.ts               # Typed fetch wrappers (fetchSky, fetchNarrative)
+├── i18n.ts              # ko/en strings + sample inputs
+├── types.ts             # TypeScript interfaces matching API schemas
+└── components/
+    ├── StarChart.tsx    # SVG star chart with pan/zoom/auto-rotate
+    ├── InputPanel.tsx   # Address / datetime / theme form
+    ├── NarrativePanel.tsx  # Story display + generate button
+    └── PrivacyDialog.tsx   # First-visit consent modal
+```
 
-**`models.py`** — Immutable dataclasses defining layer boundaries:
-- `QueryInput`: Raw user input (address, time string)
-- `ObserverContext`: Geocoding result (lat/lng, UTC datetime)
-- `StarRecord`: Single star's coordinates + projection output
-- `ConstellationLine`: Constellation line segment (HIP pair + IAU name)
-- `ConstellationPosition`: Brightness-weighted mean az/alt for a single constellation (used for narrative)
-- `SkyData`: Fully computed state passed to renderers
+**API surface:**
 
-**`compute.py`** — External API calls and astronomy computation:
-- Resolves Korean addresses to lat/lng via vworld API (ROAD → PARCEL fallback)
-- Computes star positions using skyfield + stereographic projection
-- Parses `resources/constellationship.fab` for constellation line segments
-- Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial cost; incurred once per Streamlit process start, not per re-run)
-- `_ROOT` is resolved as `Path(__file__).parent.parent.parent` (i.e., repo root)
-- Public functions: `run()` (top-level), `geocode_address()`, `compute_sky_data()`, `load_constellation_lines()` — all callable independently
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Health check |
+| POST | `/api/sky` | Geocode + compute SkyData |
+| POST | `/api/narrative` | Generate Claude prose |
 
-**`i18n.py`** — Two-language (ko/en) translation helper. `t(key, lang)` looks up `_STRINGS` dict, falls back to `"en"` then to the key. Language is detected once via `navigator.language` JS eval and cached in `st.session_state.lang`.
+**Data flow:**  
+`InputPanel` → `POST /api/sky` → `SkyData` JSON → `StarChart` (SVG)  
+`NarrativePanel` → `POST /api/narrative` → prose string
 
-**`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
-- `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
-- `_IAU_TO_KO`: IAU abbreviation → Korean name mapping dict (e.g. `"Ori"` → `"오리온"`); up to 10 visible constellations passed to the prompt
+---
 
-**`renderers/svg_2d.py`** — Primary renderer used by the Streamlit app. Produces a self-contained HTML string (SVG + JS) embedded via `st.components.v1.html()`. Uses `viewBox="-1 0 2 1"` with CSS width/height 100% for browser-native scaling — no Plotly relayout hacks. Only stars with `alt_deg >= 0` are shown.
+## Backend Details
 
-**`renderers/plotly_2d.py`** — Plotly-based 2D interactive chart renderer; no longer used by the Streamlit app (superseded by `svg_2d.py`). Horizon is drawn as a data-coordinate circle; CSS controls canvas size.
+**`models.py`** — Immutable dataclasses:
+- `QueryInput(address, when)` — raw user input
+- `ObserverContext(lat, lng, utc_dt, address_display)` — geocoding result
+- `StarRecord` — single star (HIP, mag, x/y projection, az/alt)
+- `ConstellationLine(hip_from, hip_to, name)` — line segment
+- `ConstellationPosition(name, az_deg, alt_deg)` — brightness-weighted mean position
+- `SkyData` — fully computed state
 
-**`renderers/static.py`** — Matplotlib static PNG renderer; used only by `starchart.py` (legacy), not by the Streamlit app
+**`compute.py`** — Astronomy + geocoding:
+- VWorld API (Korean) → Nominatim fallback for geocoding
+- Skyfield + de421.bsp + hip_main.dat for celestial positions
+- Stereographic projection: `viewBox="-1 0 2 1"` (x ∈ [-1,1], y ∈ [0,1])
+- `_ROOT = Path(__file__).parent.parent.parent` (repo root)
+- Module-level globals: `_eph`, `_stars_df`, `_tf` (loaded once at import)
+- `GeocodingError` raised on lookup failure
 
-**`resources/`** — Binary data files (committed to repo):
-- `de421.bsp`: NASA JPL ephemeris
-- `hip_main.dat`: Hipparcos star catalogue
-- `constellationship.fab`: Constellation line definitions (Stellarium format)
+**`narrative.py`** — Claude API:
+- Model: `claude-sonnet-4-6`, max_tokens: 900
+- `_sanitize_theme()`: truncates to 20 chars, strips control chars, rejects injection patterns
+- `<user_input>` XML tags isolate user theme in the prompt
+
+**`api/schemas.py`** — Pydantic v2:
+- `SkyRequest`: validates `when` pattern `\d{4}-\d{2}-\d{2} \d{2}:\d{2}`
+- `NarrativeRequest/Response`, `SkyResponse`, `HealthResponse`
+
+**`api/routes/sky.py`** — Filters constellation lines to only visible stars before returning.
+
+---
+
+## Frontend Details
+
+**`StarChart.tsx`** — Pure SVG:
+- `viewBox="-1 0 2 1"`, stars plotted at stereographic (x, y)
+- Auto-rotation: 0.6°/s (full revolution every 10 min) via `requestAnimationFrame`
+- Pan (mouse drag / single-touch), zoom (wheel / pinch), reset button
+- `data-testid="star-chart"` for E2E tests
+
+**`InputPanel.tsx`** — Disabled while `privacyAgreed=false`; collapsible on mobile.
+
+**`NarrativePanel.tsx`** — Rate-limited: max 3 generates per session (client-side).
+
+**`PrivacyDialog.tsx`** — Blocks submit until confirmed; agreement stored in `sessionStorage`.
+
+---
 
 ## Checks
 
-Lint, format, and type checks without modifying files:
 ```shell
 uv run ruff check src/
 uv run ruff format --check src/
@@ -87,40 +145,31 @@ uv run pyright src/
 uv run bandit -r src/ -c pyproject.toml
 ```
 
-Pre-commit hooks run automatically on commit:
-- `ruff` (lint + format, with auto-fix)
-- `pyright` (type checking)
-- `bandit` (security scan, configured via `pyproject.toml`)
-- `pip-audit` (manual stage only, run with `--hook-stage manual`)
+Pre-commit hooks: ruff (lint + format), pyright, bandit, pip-audit (manual).
 
-Run manually:
-```shell
-pre-commit run --all-files
-pre-commit run pip-audit --hook-stage manual
-```
+---
 
 ## Tests
 
-No automated tests exist in this project. The pre-commit hooks (ruff, pyright, bandit) are the primary quality gate.
+```shell
+# BDD backend tests (requires API running on :8000)
+API_BASE_URL=http://localhost:8000 uv run pytest tests/steps/ -v
 
-## Streamlit Session State
+# E2E tests (requires frontend on :5173 + backend on :8000)
+FRONTEND_URL=http://localhost:5173 uv run pytest tests/e2e/ -v
+```
 
-`app.py` stores all inter-run state in `st.session_state`:
-- `sky_data`: `SkyData | None` — computed on form submit, persists across reruns
-- `narrative`: `str | None` — Claude-generated text; cleared on each new submit
-- `error_msg`: `str | None` — shown when geocoding fails
-- `privacy_agreed`: `bool` — controls the one-time privacy dialog
-- `narrative_count`: `int` — tracks Claude API calls per session; capped at `_MAX_NARRATIVES_PER_SESSION = 3`
-- `input_open`: `bool` — toggles the bottom input panel (mobile collapsed state)
-- `show_placeholder`: `bool` — controls placeholder visibility for input fields
-- `save_triggered`: `bool` / `save_seq`: `int` — coordinate the save-as-image flow across reruns
-- `theme`: `str` — persists "이 날의 의미" input across reruns
-- `when_str`: `str` — persists date/time input across reruns
-- `default_input`: `dict` — randomly chosen sample input (address/date/time/theme) shown on first load
+Feature files: `tests/features/*.feature`  
+Step definitions: `tests/steps/test_*.py`  
+E2E: `tests/e2e/test_app_flow.py` (Playwright)  
+Requirements: `docs/epics-and-stories.md`
+
+---
 
 ## Dependency Management
 
 Use `uv`. Never edit `pyproject.toml` directly to add packages:
 ```shell
 uv add <package>
+cd frontend && npm install <package>
 ```

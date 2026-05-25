@@ -112,7 +112,9 @@ def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContex
                 lat = float(point["y"])
                 address_display = data["refined"]["text"]
         except GeocodingError:
-            logging.warning("vworld geocoding failed; falling back to Nominatim", exc_info=True)
+            logging.warning(
+                "vworld geocoding failed; falling back to Nominatim", exc_info=True
+            )
 
     if lat is None:
         result = _geocode_nominatim(address)

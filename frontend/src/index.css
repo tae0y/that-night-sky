@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+:root {
+  --gold: #c9a84c;
+  --gold-dim: #8a6e2f;
+  --bg: #0a0a12;
+  --surface: #12121e;
+  --text: #e8e0cc;
+  --text-dim: #7a7060;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  margin: 0;
+  overflow: hidden;
+  height: 100dvh;
+}
+
+#root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+.star-chart-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.input-panel {
+  background: var(--surface);
+  border-top: 1px solid var(--gold-dim);
+  padding: 0.75rem 1rem;
+}
+
+.btn-gold {
+  background: transparent;
+  border: 1px solid var(--gold);
+  color: var(--gold);
+  padding: 0.4rem 1.2rem;
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  transition: background 0.2s;
+  font-size: 0.875rem;
+}
+.btn-gold:hover:not(:disabled) {
+  background: rgba(201, 168, 76, 0.12);
+}
+.btn-gold:disabled {
+  border-color: var(--gold-dim);
+  color: var(--gold-dim);
+  cursor: not-allowed;
+}
+
+.field-input {
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--gold-dim);
+  color: var(--text);
+  font-size: 0.875rem;
+  padding: 0.25rem 0;
+  width: 100%;
+  outline: none;
+}
+.field-input:focus {
+  border-bottom-color: var(--gold);
+}
+.field-label {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: var(--gold-dim);
+  text-transform: uppercase;
+  margin-bottom: 0.2rem;
+  display: block;
+}
