@@ -16,6 +16,20 @@ uv run streamlit run src/thatnightsky/app.py
 uv run python src/thatnightsky/starchart.py
 ```
 
+## Deploy (Docker + Cloudflare Tunnel)
+
+```shell
+# Build and start (always pass --env-file; CLOUDFLARE_TUNNEL_TOKEN lives in .env at repo root,
+# but compose files are under docker/ so Docker Compose won't auto-load it otherwise)
+docker compose -f docker/docker-compose.yml --env-file .env up -d --build
+
+# Restart without rebuild
+docker compose -f docker/docker-compose.yml --env-file .env up -d
+
+# Stop
+docker compose -f docker/docker-compose.yml --env-file .env down
+```
+
 ## Environment Variables
 
 Requires a `.env` file:

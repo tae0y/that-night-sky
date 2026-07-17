@@ -28,6 +28,11 @@ The chart uses a stereographic all-sky projection: the center is the zenith (dir
 The star-chart rendering approach is adapted from:
 [Medium — I Made a Sky Map in Python. Here's How.](https://viyaleta.medium.com/how-to-make-a-sky-map-in-python-a362bf722bb2)
 
+## Roadmap
+
+- **PNG download** — under investigation; will open once resolved.
+- **Re-implementation** — current architecture has limitations; considering a rebuild.
+
 ## Background Story
 
 Two years ago, I heard a story about a couple who traveled to Hawaii. On their last day, they visited an observatory and stepped into the planetarium. The guide asked the wife for her birthday, then adjusted the dome and said:

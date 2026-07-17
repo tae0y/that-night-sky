@@ -1,8 +1,10 @@
 """ThatNightSky — Streamlit app for the night sky on a given date."""
 
+import base64
 import datetime
 import html
 import random
+from pathlib import Path
 from typing import TypedDict
 
 import streamlit as st
@@ -55,10 +57,6 @@ if "input_open" not in st.session_state:
     st.session_state.input_open = True
 if "show_placeholder" not in st.session_state:
     st.session_state.show_placeholder = True
-if "save_triggered" not in st.session_state:
-    st.session_state.save_triggered = False
-if "save_seq" not in st.session_state:
-    st.session_state.save_seq = 0
 if "theme" not in st.session_state:
     st.session_state.theme = ""
 if "when_str" not in st.session_state:
@@ -123,18 +121,21 @@ if "default_input" not in st.session_state and "lang" in st.session_state:
     )
 
 # --- Dark fullscreen theme CSS (static) ---
+_FONT_PATH = Path(__file__).parent.parent.parent / "resources" / "NostalgicPoliceHumanRights.ttf"
+_FONT_SRC = (
+    f"url('data:font/ttf;base64,{base64.b64encode(_FONT_PATH.read_bytes()).decode()}') format('truetype')"
+    if _FONT_PATH.exists()
+    else "url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2') format('woff2')"
+)
+st.markdown(
+    f"<style>@font-face {{ font-family: 'NostalgicPoliceHumanRights'; src: {_FONT_SRC}; font-weight: normal; font-display: block; }}</style>",
+    unsafe_allow_html=True,
+)
 st.markdown(
     """
     <style>
     /* Hide streamlit_js_eval invisible iframe */
     iframe[src*="streamlit_js_eval"] { display: none !important; }
-    /* Custom font */
-    @font-face {
-        font-family: 'NostalgicPoliceHumanRights';
-        src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2601-6@1.0/Griun_PolHumanrights-Rg.woff2') format('woff2');
-        font-weight: normal;
-        font-display: swap;
-    }
     html, body, * {
         font-family: 'NostalgicPoliceHumanRights', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif !important;
     }
@@ -290,6 +291,7 @@ st.markdown(
         transition: opacity 0.6s ease-out;
     }
     </style>
+    <!-- Cloudflare Web Analytics --><script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "770c1f0e7d5543d69bb862413a11a4c5"}'></script><!-- End Cloudflare Web Analytics -->
     <script>
     function tnsWatchOverlay() {
         var ob = new MutationObserver(function(ms) {
@@ -503,29 +505,21 @@ if st.session_state.sky_data is not None:
     _date_part = _when[:10]  # YYYY-MM-DD
     _hh_part = _when[11:13]  # HH
     png_filename = f"{_date_part}_{_hh_part}00.png"
+    _font_b64 = (
+        base64.b64encode(_FONT_PATH.read_bytes()).decode() if _FONT_PATH.exists() else ""
+    )
     svg_html = render_svg_html(
         st.session_state.sky_data,
         filename=png_filename,
         narrative=st.session_state.narrative or "",
         lang=_lang,
+        font_b64=_font_b64,
     )
     chart_placeholder.empty()
     # height=900: initial iframe height Streamlit requires (hidden if 0).
     # JS resizes iframe to position:fixed + width=h*2 to fill the viewport.
     # SVG starts visibility:hidden, shown after JS completes — prevents flash.
     components.html(svg_html, height=900, scrolling=False)
-
-# Save trigger: chart iframe watches parent DOM for attribute changes on this marker.
-# Always rendered when sky_data exists so the node persists across reruns.
-# data-seq increments on each save click; iframe JS watches for attribute mutations.
-if st.session_state.sky_data is not None:
-    if st.session_state.save_triggered:
-        st.session_state.save_seq += 1
-        st.session_state.save_triggered = False
-    st.markdown(
-        f'<div id="tns-save-trigger" data-seq="{st.session_state.save_seq}" style="display:none"></div>',
-        unsafe_allow_html=True,
-    )
 
 if st.session_state.show_placeholder and st.session_state.sky_data is None:
     chart_placeholder.markdown(
@@ -543,21 +537,11 @@ if "default_input" not in st.session_state:
 
 if not st.session_state.input_open:
     with st.container(key="bottom_bar"):
-        has_sky = st.session_state.sky_data is not None
-        bcol1, bcol2 = st.columns(2) if has_sky else (st.columns(1)[0], None)
-        with bcol1:
-            if st.button(
-                t("btn_edit", _lang), key="toggle_open", use_container_width=True
-            ):
-                st.session_state.input_open = True
-                st.rerun()
-        if bcol2 is not None:
-            with bcol2:
-                if st.button(
-                    t("btn_save", _lang), key="save_btn", use_container_width=True
-                ):
-                    st.session_state.save_triggered = True
-                    st.rerun()
+        if st.button(
+            t("btn_edit", _lang), key="toggle_open", use_container_width=True
+        ):
+            st.session_state.input_open = True
+            st.rerun()
 else:
     col1, col2, col3, col4, col5 = st.columns([3, 2, 2, 2, 1.5])
     with col1:
