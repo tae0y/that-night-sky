@@ -59,8 +59,8 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       context!.fillStyle = BG;
       context!.fillRect(0, 0, canvas!.width, canvas!.height);
 
-      // data -> pixel: px = S*(x+1), py = S*(1-y)
-      context!.setTransform(S, 0, 0, -S, S, S);
+      // data -> pixel: px = S*(x+1), py = S*y
+      context!.setTransform(S, 0, 0, S, S, 0);
 
       context!.save();
       context!.rotate((rotAngle * Math.PI) / 180);
