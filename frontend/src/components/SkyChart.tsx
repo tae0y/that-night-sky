@@ -20,10 +20,9 @@ function starOpacity(magnitude: number): number {
 interface Props {
   skyData: SkyData;
   canvasRef: RefObject<HTMLCanvasElement | null>;
-  rotationDeg?: number;
 }
 
-export function SkyChart({ skyData, canvasRef, rotationDeg = 0 }: Props) {
+export function SkyChart({ skyData, canvasRef }: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -52,7 +51,7 @@ export function SkyChart({ skyData, canvasRef, rotationDeg = 0 }: Props) {
       return R;
     }
 
-    function draw(R: number) {
+    function draw(R: number, rotAngle: number) {
       const dpr = window.devicePixelRatio || 1;
       const S = R * dpr;
 
@@ -64,7 +63,7 @@ export function SkyChart({ skyData, canvasRef, rotationDeg = 0 }: Props) {
       context!.setTransform(S, 0, 0, -S, S, S);
 
       context!.save();
-      context!.rotate((rotationDeg * Math.PI) / 180);
+      context!.rotate((rotAngle * Math.PI) / 180);
 
       context!.strokeStyle = LINE_COLOR;
       context!.lineWidth = 0.0025;
@@ -96,15 +95,32 @@ export function SkyChart({ skyData, canvasRef, rotationDeg = 0 }: Props) {
       context!.globalAlpha = 1;
     }
 
-    const R = resize();
-    draw(R);
+    const DEG_PER_MS = 360 / (600 * 1000); // one full rotation per 10 minutes
+    let rotAngle = 0;
+    let lastTs: number | null = null;
+    let rafId = 0;
+    let currentR = resize();
+
+    function loop(ts: number) {
+      if (lastTs !== null) {
+        rotAngle = (rotAngle + (ts - lastTs) * DEG_PER_MS) % 360;
+      }
+      lastTs = ts;
+      draw(currentR, rotAngle);
+      rafId = requestAnimationFrame(loop);
+    }
 
     function onResize() {
-      draw(resize());
+      currentR = resize();
     }
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [skyData, rotationDeg, canvasRef]);
+    rafId = requestAnimationFrame(loop);
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      cancelAnimationFrame(rafId);
+    };
+  }, [skyData, canvasRef]);
 
   return <canvas ref={canvasRef} />;
 }
