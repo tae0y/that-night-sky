@@ -1,16 +1,108 @@
-import { useRef, useEffect, useState } from "react";
+// frontend/src/App.tsx
+import { useRef, useState } from "react";
 import { SkyChart } from "./components/SkyChart";
-import { fetchSkyData } from "./api/client";
+import { InputPanel, type DefaultValues } from "./components/InputPanel";
+import { NarrativeBox } from "./components/NarrativeBox";
+import { PrivacyDialog, hasAgreedToPrivacy } from "./components/PrivacyDialog";
+import { fetchSkyData, fetchNarrative, ApiError } from "./api/client";
+import { t, detectLang } from "./i18n";
 import type { SkyData } from "./types";
 
+const DEFAULT_VALUES: DefaultValues = {
+  address: "Gahoedong, Jongno-gu, Seoul, South Korea",
+  date: "1900-01-01",
+  time: "01:00",
+  theme: "Birthday",
+};
+
 export default function App() {
+  const lang = detectLang();
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [privacyAgreed, setPrivacyAgreed] = useState(hasAgreedToPrivacy());
   const [skyData, setSkyData] = useState<SkyData | null>(null);
+  const [narrative, setNarrative] = useState<string | null>(null);
+  const [narrativeLimitReached, setNarrativeLimitReached] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [theme, setThemeUsed] = useState("");
+  const [inputOpen, setInputOpen] = useState(true);
 
-  useEffect(() => {
-    fetchSkyData("부산 가야동", "1995-01-15 06:00", "ko").then(setSkyData);
-  }, []);
+  async function handleSubmit(address: string, when: string, submittedTheme: string) {
+    setErrorMsg(null);
+    setNarrative(null);
+    setNarrativeLimitReached(false);
+    setThemeUsed(submittedTheme);
+    setLoadingMessage(t("loading_compute", lang));
 
-  if (!skyData) return <div>loading...</div>;
-  return <SkyChart skyData={skyData} canvasRef={canvasRef} />;
+    let data: SkyData;
+    try {
+      data = await fetchSkyData(address, when, lang);
+    } catch (err) {
+      setLoadingMessage(null);
+      setErrorMsg(
+        t("error_address", lang).replace(
+          "{error}",
+          err instanceof Error ? err.message : "unknown",
+        ),
+      );
+      return;
+    }
+    setSkyData(data);
+
+    setLoadingMessage(t("loading_narrative", lang));
+    try {
+      const text = await fetchNarrative(
+        data.addressDisplay,
+        when,
+        data.constellationPositions,
+        submittedTheme,
+        lang,
+      );
+      setNarrative(text);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setNarrativeLimitReached(true);
+      } else {
+        // Non-429 failures (network down, 500, etc.) never reach the server-side
+        // fallback in Task 2 — that fallback only covers Claude API errors inside
+        // a *successful* HTTP response. Show a fixed client-side fallback message
+        // instead of leaving the narrative area silently empty.
+        setErrorMsg(t("narrative_error", lang));
+      }
+    }
+    setLoadingMessage(null);
+    setInputOpen(false);
+  }
+
+  if (!privacyAgreed) {
+    return <PrivacyDialog lang={lang} onConfirm={() => setPrivacyAgreed(true)} />;
+  }
+
+  return (
+    <div className="app">
+      {skyData ? (
+        <SkyChart skyData={skyData} canvasRef={canvasRef} />
+      ) : (
+        <div className="placeholder">{t("placeholder", lang)}</div>
+      )}
+
+      {loadingMessage && <div className="loading-overlay">{loadingMessage}</div>}
+      {errorMsg && <div className="error-box">{errorMsg}</div>}
+
+      <NarrativeBox text={narrative} limitReached={narrativeLimitReached} lang={lang} />
+
+      {inputOpen ? (
+        <InputPanel
+          lang={lang}
+          defaultValues={DEFAULT_VALUES}
+          onSubmit={handleSubmit}
+          disabled={loadingMessage !== null}
+        />
+      ) : (
+        <button className="edit-btn" onClick={() => setInputOpen(true)}>
+          {t("btn_edit", lang)}
+        </button>
+      )}
+    </div>
+  );
 }
