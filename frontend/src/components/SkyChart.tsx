@@ -6,7 +6,9 @@ const BG = "#0d1b35";
 const STAR_COLOR = "#f0e0b0";
 const LINE_COLOR = "#c9a96e";
 const HORIZON_COLOR = "#c9a96e";
-const CENTRE_TOP_PX = 50;
+// Bleed the ∪ dome's flat top slightly above the viewport so its straight top
+// edge sits off-screen — otherwise the dome looks like it floats below a gap.
+const TOP_BLEED_FRAC = 0.06;
 
 function starRadius(magnitude: number): number {
   const r = (6 - magnitude) / 600;
@@ -67,7 +69,7 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       canvas!.style.height = `${R}px`;
       canvas!.style.position = "fixed";
       canvas!.style.left = `${Math.round((vw - 2 * R) / 2)}px`;
-      canvas!.style.top = `${CENTRE_TOP_PX}px`;
+      canvas!.style.top = `${-Math.round(R * TOP_BLEED_FRAC)}px`;
       canvas!.style.zIndex = "1"; // above the ambient .starfield-bg (z-index 0)
       return R;
     }
