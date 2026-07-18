@@ -43,7 +43,10 @@ html, body, #root { height: 100%; background: #0d1b35; }
 }
 .privacy-dialog h3 { color: #fff; margin-bottom: 1rem; }
 .privacy-dialog a { color: #7ec8e3; display: block; margin: 0.6rem 0; }
-.share-download { position: relative; display: inline-flex; gap: 0.5rem; }
+.share-download {
+  position: fixed; bottom: 0.8rem; left: 1.6rem; z-index: 101;
+  display: inline-flex; gap: 0.5rem;
+}
 .save-menu {
   position: absolute; bottom: calc(100% + 0.4rem); left: 0; z-index: 102;
   display: flex; flex-direction: column; min-width: 12rem;
