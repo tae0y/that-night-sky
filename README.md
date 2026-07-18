@@ -32,10 +32,10 @@ The chart uses a stereographic all-sky projection: the center is the zenith (dir
 The star-chart rendering approach is adapted from:
 [Medium — I Made a Sky Map in Python. Here's How.](https://viyaleta.medium.com/how-to-make-a-sky-map-in-python-a362bf722bb2)
 
-## Roadmap
+## What's New in 1.0.0
 
-- **PNG download** — under investigation; will open once resolved.
-- **Re-implementation** — current architecture has limitations; considering a rebuild.
+- **Rebuilt on React + FastAPI** — the Streamlit app has been fully replaced with a FastAPI backend and a React frontend with canvas rendering.
+- **PNG download** — download your star chart, or a card composited with the narrative.
 
 ## Background Story
 
