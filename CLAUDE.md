@@ -4,16 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-A Streamlit web app that renders an interactive star chart for a given date and location. Enter a Korean address, and the app resolves coordinates via vworld API, computes celestial positions with skyfield, and generates a poetic narrative using the Claude API.
+A React + FastAPI web app that renders an interactive star chart for a given date and location. Enter a Korean address, and the app resolves coordinates via vworld API, computes celestial positions with skyfield, and generates a poetic narrative using the Claude API.
 
 ## Run
 
 ```shell
-# Streamlit app (main entry point)
-uv run streamlit run src/thatnightsky/app.py
+# FastAPI backend (serves /api/sky-data, /api/narrative, /healthz)
+uv run uvicorn thatnightsky.api:app --port 8000
 
-# Legacy static PNG script
-uv run python src/thatnightsky/starchart.py
+# React frontend (dev server)
+cd frontend && npm run dev
 ```
 
 ## Deploy (Docker + Cloudflare Tunnel)
@@ -40,9 +40,9 @@ ANTHROPIC_API_KEY=...    # Claude API (used for narrative text generation)
 
 ## Architecture
 
-`src/thatnightsky/` contains all code including the Streamlit entry point (`app.py`).
+`src/thatnightsky/` contains the FastAPI backend (`api.py`); `frontend/` contains the React app.
 
-Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.render_*()` → HTML string (SVG+JS)
+Data flow: `QueryInput` → `compute.run()` → `SkyData` → `api.py` (serialized to JSON via `CamelModel`) → React `SkyChart` (canvas rendering)
 
 **`models.py`** — Immutable dataclasses defining layer boundaries:
 - `QueryInput`: Raw user input (address, time string)
@@ -56,21 +56,15 @@ Data flow: `QueryInput` → `compute.run()` → `SkyData` → `renderers/*.rende
 - Resolves Korean addresses to lat/lng via vworld API (ROAD → PARCEL fallback)
 - Computes star positions using skyfield + stereographic projection
 - Parses `resources/constellationship.fab` for constellation line segments
-- Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial cost; incurred once per Streamlit process start, not per re-run)
+- Loads `de421.bsp` and `hip_main.dat` from `resources/` at module import time (non-trivial cost; incurred once per process start, not per request)
 - `_ROOT` is resolved as `Path(__file__).parent.parent.parent` (i.e., repo root)
 - Public functions: `run()` (top-level), `geocode_address()`, `compute_sky_data()`, `load_constellation_lines()` — all callable independently
-
-**`i18n.py`** — Two-language (ko/en) translation helper. `t(key, lang)` looks up `_STRINGS` dict, falls back to `"en"` then to the key. Language is detected once via `navigator.language` JS eval and cached in `st.session_state.lang`.
 
 **`narrative.py`** — Generates Korean poetic prose using Anthropic `claude-sonnet-4-6` (model name hardcoded)
 - `theme` (user-supplied "이 날의 의미") is sanitized via `_sanitize_theme()` before inclusion in the prompt — returns `None` on empty or injection-suspicious input; wrapped in `<user_input>` XML tags in the user message
 - `_IAU_TO_KO`: IAU abbreviation → Korean name mapping dict (e.g. `"Ori"` → `"오리온"`); up to 10 visible constellations passed to the prompt
 
-**`renderers/svg_2d.py`** — Primary renderer used by the Streamlit app. Produces a self-contained HTML string (SVG + JS) embedded via `st.components.v1.html()`. Uses `viewBox="-1 0 2 1"` with CSS width/height 100% for browser-native scaling — no Plotly relayout hacks. Only stars with `alt_deg >= 0` are shown.
-
-**`renderers/plotly_2d.py`** — Plotly-based 2D interactive chart renderer; no longer used by the Streamlit app (superseded by `svg_2d.py`). Horizon is drawn as a data-coordinate circle; CSS controls canvas size.
-
-**`renderers/static.py`** — Matplotlib static PNG renderer; used only by `starchart.py` (legacy), not by the Streamlit app
+The Streamlit app (`app.py`), the SVG/Plotly/Matplotlib renderers (`renderers/svg_2d.py`, `renderers/plotly_2d.py`, `renderers/static.py`), the legacy static PNG script (`starchart.py`), and the `i18n.py` translation helper have been removed — fully replaced by the FastAPI backend (`api.py`) and the React frontend (`frontend/`).
 
 **`resources/`** — Binary data files (committed to repo):
 - `de421.bsp`: NASA JPL ephemeris
@@ -101,22 +95,11 @@ pre-commit run pip-audit --hook-stage manual
 
 ## Tests
 
-No automated tests exist in this project. The pre-commit hooks (ruff, pyright, bandit) are the primary quality gate.
+`tests/test_api.py` contains pytest tests covering `api.py`'s FastAPI endpoints (run with `uv run pytest tests/ -v`); it does not cover `compute.py`, `narrative.py`, or the frontend. The pre-commit hooks (ruff, pyright, bandit) remain the primary quality gate alongside this suite.
 
-## Streamlit Session State
+## Frontend State
 
-`app.py` stores all inter-run state in `st.session_state`:
-- `sky_data`: `SkyData | None` — computed on form submit, persists across reruns
-- `narrative`: `str | None` — Claude-generated text; cleared on each new submit
-- `error_msg`: `str | None` — shown when geocoding fails
-- `privacy_agreed`: `bool` — controls the one-time privacy dialog
-- `narrative_count`: `int` — tracks Claude API calls per session; capped at `_MAX_NARRATIVES_PER_SESSION = 3`
-- `input_open`: `bool` — toggles the bottom input panel (mobile collapsed state)
-- `show_placeholder`: `bool` — controls placeholder visibility for input fields
-- `save_triggered`: `bool` / `save_seq`: `int` — coordinate the save-as-image flow across reruns
-- `theme`: `str` — persists "이 날의 의미" input across reruns
-- `when_str`: `str` — persists date/time input across reruns
-- `default_input`: `dict` — randomly chosen sample input (address/date/time/theme) shown on first load
+The React frontend (`frontend/src/`) holds UI state in component `useState`. Form inputs (address, date/time, theme) reset to hardcoded `DEFAULT_VALUES` in `App.tsx` on reload — they are not persisted. Only the privacy-agreement flag persists across reloads, via `localStorage` (`PrivacyDialog.tsx`). The narrative call-count cap is tracked server-side via a session cookie set by `api.py`.
 
 ## Dependency Management
 

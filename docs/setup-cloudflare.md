@@ -59,12 +59,6 @@ The full set of required variables:
 ## Start the containers
 
 ```bash
-# bash/zsh
-docker compose -f docker/docker-compose.yml --env-file .env up -d
-```
-
-```powershell
-# PowerShell
 docker compose -f docker/docker-compose.yml --env-file .env up -d
 ```
 
@@ -81,12 +75,6 @@ The `cloudflared` service depends on the `sky` health check passing, so it start
 1. Stop and remove the containers:
 
     ```bash
-    # bash/zsh
-    docker compose -f docker/docker-compose.yml --env-file .env down
-    ```
-
-    ```powershell
-    # PowerShell
     docker compose -f docker/docker-compose.yml --env-file .env down
     ```
 

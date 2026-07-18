@@ -8,7 +8,11 @@ Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
 
 1. Get the code, and run it.
     ```shell
-    uv run streamlit run src/thatnightsky/app.py
+    # backend (FastAPI)
+    uv run uvicorn thatnightsky.api:app --port 8000
+
+    # frontend (React, in another terminal)
+    cd frontend && npm run dev
     ```
 
 1. Enter Korean address, date/time, and its meaning.
@@ -17,7 +21,7 @@ Try it: [thatnightsky.tae0y.net](https://thatnightsky.tae0y.net/)
 
     ![](./resources/sample.png)
 
-    > To deploy the app with your own, see [docs/README.md](docs/README.md) — Docker, Cloudflare Tunnel, and Streamlit Cloud are covered.
+    > To deploy the app with your own, see [docs/README.md](docs/README.md) — Docker and Cloudflare Tunnel are covered.
 
 ## How It Works
 

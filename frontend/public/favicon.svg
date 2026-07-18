@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0d1b35"/>
+
+  <!-- horizon arc, echoing the dome's ∪ curve -->
+  <path d="M7 40 A27 27 0 0 0 57 40" stroke="#c9a96e" stroke-width="2" fill="none" opacity="0.8"/>
+
+  <!-- faint constellation: a couple of dim stars joined by a thin line -->
+  <path d="M17 21 L37 27 L47 15" stroke="#c9a96e" stroke-width="1" fill="none" opacity="0.45"/>
+  <circle cx="17" cy="21" r="1.6" fill="#f0e0b0" opacity="0.9"/>
+  <circle cx="37" cy="27" r="1.3" fill="#f0e0b0" opacity="0.75"/>
+  <circle cx="47" cy="15" r="1.5" fill="#f0e0b0" opacity="0.85"/>
+
+  <!-- soft glow behind the main sparkle -->
+  <circle cx="32" cy="19" r="10" fill="#f0e0b0" opacity="0.14"/>
+
+  <!-- main four-point sparkle, echoing the app's "✦" wordmark -->
+  <path
+    d="M32 6 C32.6 13.8 34.6 17.4 42 18.5 C34.6 19.6 32.6 23.2 32 31 C31.4 23.2 29.4 19.6 22 18.5 C29.4 17.4 31.4 13.8 32 6 Z"
+    fill="#f5e6b8"
+  />
+</svg>
