@@ -16,6 +16,12 @@ build/
 .venv/
 venv/
 
+# Frontend artifacts (rebuilt inside the frontend-builder stage; host copies
+# may carry platform-specific native binaries, e.g. esbuild/rollup, that
+# break when copied into the Linux build container)
+frontend/node_modules/
+frontend/dist/
+
 # Dev / test
 .pytest_cache/
 .mypy_cache/
