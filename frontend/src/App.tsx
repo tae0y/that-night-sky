@@ -1,5 +1,5 @@
 // frontend/src/App.tsx
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SkyChart } from "./components/SkyChart";
 import { InputPanel, type DefaultValues } from "./components/InputPanel";
 import { NarrativeBox } from "./components/NarrativeBox";
@@ -18,6 +18,12 @@ const DEFAULT_VALUES: DefaultValues = {
 
 export default function App() {
   const lang = detectLang();
+
+  useEffect(() => {
+    document.title = t("page_title", lang);
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [privacyAgreed, setPrivacyAgreed] = useState(hasAgreedToPrivacy());
   const [skyData, setSkyData] = useState<SkyData | null>(null);
@@ -86,13 +92,18 @@ export default function App() {
       {skyData ? (
         <SkyChart skyData={skyData} canvasRef={canvasRef} />
       ) : (
-        <div className="placeholder">{t("placeholder", lang)}</div>
+        <div className="placeholder">
+          <div className="wordmark">✦ {t("page_title", lang)}</div>
+          <p className="placeholder-hint">{t("placeholder", lang)}</p>
+        </div>
       )}
 
       {loadingMessage && <div className="loading-overlay">{loadingMessage}</div>}
       {errorMsg && <div className="error-box">{errorMsg}</div>}
 
-      <NarrativeBox text={narrative} limitReached={narrativeLimitReached} lang={lang} />
+      {!inputOpen && (
+        <NarrativeBox text={narrative} limitReached={narrativeLimitReached} lang={lang} />
+      )}
 
       {skyData && !inputOpen && (
         <ShareDownload

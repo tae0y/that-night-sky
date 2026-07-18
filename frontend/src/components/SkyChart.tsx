@@ -40,7 +40,9 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       const dpr = window.devicePixelRatio || 1;
       const vh = window.innerHeight;
       const vw = window.innerWidth;
-      const R = Math.round(vh * 0.6);
+      // Height drives the dome on wide screens; on narrow/portrait viewports the
+      // width cap keeps the full ∪ dome (2R wide) from being cropped off-screen.
+      const R = Math.round(Math.min(vh * 0.6, vw * 0.56));
       canvas!.width = Math.round(2 * R * dpr);
       canvas!.height = Math.round(R * dpr);
       canvas!.style.width = `${2 * R}px`;
