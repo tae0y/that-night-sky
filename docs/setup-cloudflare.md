@@ -68,7 +68,7 @@ The `cloudflared` service depends on the `sky` health check passing, so it start
 
 1. Open the Cloudflare Zero Trust dashboard → **Networks** → **Tunnels** — confirm the tunnel shows **Healthy**.
 1. Open `https://<subdomain>.<domain>` in a browser — the app should load.
-1. Submit a location and confirm the star chart renders and the WebSocket session stays connected.
+1. Submit a location and confirm the star chart renders and the narrative text appears.
 
 ## Remove
 
