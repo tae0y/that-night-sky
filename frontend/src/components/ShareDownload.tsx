@@ -9,17 +9,20 @@ export function buildFilename(whenStr: string, theme: string): string {
   return `${datePart}_${hhPart}00${themePart}.png`;
 }
 
-// Composite the ambient starfield + horizon dome into a single viewport-sized
-// image, so a saved chart includes the area *outside* the dome (the background
-// stars) exactly as it appears on screen — not just the bare dome canvas.
+// Composite the ambient starfield + horizon dome into a single image, so a
+// saved chart includes the area *outside* the dome (the background stars)
+// exactly as it appears on screen — not just the bare dome canvas.
+// `heightCss` defaults to the full viewport (a plain chart screenshot); pass
+// a smaller value to crop the composite shorter (see cardSkyHeight below).
 export function composeSkyCanvas(
   chart: HTMLCanvasElement,
   starfield: HTMLCanvasElement | null,
+  heightCss: number = window.innerHeight,
 ): HTMLCanvasElement {
   const dpr = window.devicePixelRatio || 1;
   const out = document.createElement("canvas");
   out.width = Math.round(window.innerWidth * dpr);
-  out.height = Math.round(window.innerHeight * dpr);
+  out.height = Math.round(heightCss * dpr);
   const ctx = out.getContext("2d")!;
   ctx.fillStyle = "#0d1b35";
   ctx.fillRect(0, 0, out.width, out.height);
@@ -29,6 +32,21 @@ export function composeSkyCanvas(
   const top = parseFloat(chart.style.top) || 0;
   ctx.drawImage(chart, Math.round(left * dpr), Math.round(top * dpr));
   return out;
+}
+
+// The dome typically ends well above the bottom of the viewport (its radius
+// is sized to the tallest narrative text, not the shortest). Appending the
+// narrative box straight onto a full-viewport-height sky image leaves that
+// leftover gap sitting *above* the text, stretching the saved/shared card far
+// taller than it needs to be. Crop to just below the horizon instead, plus a
+// little breathing room, so the text sits directly under the dome.
+const CARD_BOTTOM_MARGIN_CSS = 32;
+
+export function cardSkyHeight(chart: HTMLCanvasElement): number {
+  const top = parseFloat(chart.style.top) || 0;
+  const height = parseFloat(chart.style.height) || 0;
+  const domeBottom = top + height + CARD_BOTTOM_MARGIN_CSS;
+  return Math.min(window.innerHeight, Math.round(domeBottom));
 }
 
 function triggerDownload(canvas: HTMLCanvasElement, filename: string) {
@@ -133,7 +151,8 @@ async function tryShare(
   if (typeof navigator.share !== "function") return "unsupported";
 
   await ensureCardFontLoaded();
-  const composite = buildCompositeCanvas(composeSkyCanvas(chart, starfield), narrative);
+  const sky = composeSkyCanvas(chart, starfield, cardSkyHeight(chart));
+  const composite = buildCompositeCanvas(sky, narrative);
   const blob: Blob | null = await new Promise((resolve) =>
     composite.toBlob(resolve, "image/png"),
   );
@@ -182,7 +201,7 @@ export function ShareDownload({ canvasRef, starfieldRef, narrative, whenStr, the
     const canvas = canvasRef.current;
     if (!canvas || !narrative) return;
     await ensureCardFontLoaded();
-    const sky = composeSkyCanvas(canvas, starfieldRef.current);
+    const sky = composeSkyCanvas(canvas, starfieldRef.current, cardSkyHeight(canvas));
     downloadCompositeCard(sky, narrative, `card_${buildFilename(whenStr, theme)}`);
     setMenuOpen(false);
   }
