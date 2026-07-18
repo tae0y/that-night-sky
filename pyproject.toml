@@ -11,6 +11,7 @@ dependencies = [
     "altair<5",
     "anthropic>=0.82.0",
     "certifi>=2026.1.4",
+    "fastapi>=0.139.2",
     "geopy>=2.4.1",
     "httpx>=0.28.1",
     "matplotlib>=3.10.8",
@@ -24,6 +25,7 @@ dependencies = [
     "streamlit>=1.54",
     "streamlit-js-eval>=1.0.0",
     "timezonefinder>=8.2.1",
+    "uvicorn[standard]>=0.51.0",
 ]
 
 [project.scripts]
@@ -36,7 +38,9 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "bandit>=1.9.3",
+    "httpx>=0.28.1",
     "pre-commit>=4.5.1",
     "pyright>=1.1.411",
+    "pytest>=9.1.1",
     "ruff>=0.15.1",
 ]
