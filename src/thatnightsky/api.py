@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import threading
 import time
 from dataclasses import asdict
 from pathlib import Path
@@ -97,6 +98,9 @@ _SESSION_COOKIE = "tns_session"
 _SESSION_MAX_AGE_SECONDS = 86400
 _MAX_NARRATIVES_PER_SESSION = 3
 _narrative_counts: dict[str, tuple[int, float]] = {}  # session_id -> (count, last_seen)
+# Sync endpoints run in a threadpool, so every access to _narrative_counts
+# must hold this lock (lost increments / mutation during iteration otherwise).
+_narrative_lock = threading.Lock()
 _NARRATIVE_FALLBACK = {
     "ko": "그날, 밤, 하늘입니다.",
     "en": "That night. The sky.",
@@ -107,11 +111,14 @@ def _prune_expired_sessions() -> None:
     """Evict session entries older than the cookie's max age, so the in-memory
     rate-limit map stays bounded instead of growing for the life of the process."""
     cutoff = time.time() - _SESSION_MAX_AGE_SECONDS
-    expired = [
-        sid for sid, (_, last_seen) in _narrative_counts.items() if last_seen < cutoff
-    ]
-    for sid in expired:
-        del _narrative_counts[sid]
+    with _narrative_lock:
+        expired = [
+            sid
+            for sid, (_, last_seen) in _narrative_counts.items()
+            if last_seen < cutoff
+        ]
+        for sid in expired:
+            del _narrative_counts[sid]
 
 
 class NarrativeRequest(CamelModel):
@@ -130,11 +137,19 @@ def _get_session_id(request: Request, response: Response) -> str:
     session_id = request.cookies.get(_SESSION_COOKIE)
     if session_id is None:
         session_id = secrets.token_urlsafe(24)
+        # Secure only when the request actually arrived over HTTPS — directly or
+        # via a TLS-terminating proxy (cloudflared reaches this app over plain
+        # HTTP but sets X-Forwarded-Proto). A hardcoded True would make browsers
+        # drop the cookie in local HTTP dev, disabling the narrative limit.
+        is_https = (
+            request.url.scheme == "https"
+            or request.headers.get("x-forwarded-proto") == "https"
+        )
         response.set_cookie(
             _SESSION_COOKIE,
             session_id,
             httponly=True,
-            secure=True,
+            secure=is_https,
             samesite="lax",
             max_age=_SESSION_MAX_AGE_SECONDS,
         )
@@ -147,7 +162,8 @@ def post_narrative(
 ) -> NarrativeResponse:
     session_id = _get_session_id(request, response)
     _prune_expired_sessions()
-    count, _ = _narrative_counts.get(session_id, (0, 0.0))
+    with _narrative_lock:
+        count, _ = _narrative_counts.get(session_id, (0, 0.0))
     if count >= _MAX_NARRATIVES_PER_SESSION:
         raise HTTPException(status_code=429, detail="narrative limit reached")
 
@@ -166,7 +182,9 @@ def post_narrative(
     except Exception:
         text = _NARRATIVE_FALLBACK.get(body.lang, _NARRATIVE_FALLBACK["en"])
     else:
-        _narrative_counts[session_id] = (count + 1, time.time())
+        with _narrative_lock:
+            current, _ = _narrative_counts.get(session_id, (0, 0.0))
+            _narrative_counts[session_id] = (current + 1, time.time())
 
     return NarrativeResponse(text=text)
 

@@ -110,6 +110,40 @@ def test_narrative_429_after_three_calls():
     assert r4.status_code == 429
 
 
+_NARRATIVE_BODY = {
+    "address": "Seoul",
+    "when": "2024-01-01 20:00",
+    "constellationPositions": [],
+    "theme": "",
+    "lang": "en",
+}
+
+
+def test_session_cookie_secure_over_https():
+    https_client = TestClient(app, base_url="https://testserver")
+    with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
+        response = https_client.post("/api/narrative", json=_NARRATIVE_BODY)
+    assert "secure" in response.headers["set-cookie"].lower()
+
+
+def test_session_cookie_not_secure_over_plain_http():
+    http_client = TestClient(app, base_url="http://testserver")
+    with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
+        response = http_client.post("/api/narrative", json=_NARRATIVE_BODY)
+    assert "secure" not in response.headers["set-cookie"].lower()
+
+
+def test_session_cookie_secure_behind_tls_proxy():
+    proxied_client = TestClient(
+        app,
+        base_url="http://testserver",
+        headers={"x-forwarded-proto": "https"},
+    )
+    with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
+        response = proxied_client.post("/api/narrative", json=_NARRATIVE_BODY)
+    assert "secure" in response.headers["set-cookie"].lower()
+
+
 def test_narrative_falls_back_on_claude_error():
     with patch(
         "thatnightsky.api.generate_night_description", side_effect=RuntimeError("boom")
