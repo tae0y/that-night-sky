@@ -1,3 +1,15 @@
+# docker/Dockerfile
+FROM node:22-slim AS frontend-builder
+
+WORKDIR /app/frontend
+
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci
+
+COPY frontend/ ./
+RUN npm run build
+
+
 FROM ghcr.io/astral-sh/uv:0.7-python3.12-bookworm-slim AS builder
 
 WORKDIR /app
@@ -37,18 +49,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser resources/ ./resources/
-
-RUN mkdir -p /app/.streamlit && \
-    printf '[server]\nheadless = true\n[browser]\ngatherUsageStats = false\n' \
-    > /app/.streamlit/config.toml && \
-    chown -R appuser:appuser /app/.streamlit
+COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./frontend/dist
 
 USER appuser
 
-EXPOSE 8501
+EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -f http://localhost:8501/_stcore/health || exit 1
+    CMD curl -f http://localhost:8000/healthz || exit 1
 
-CMD ["streamlit", "run", "src/thatnightsky/app.py", \
-     "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["uvicorn", "thatnightsky.api:app", "--host", "0.0.0.0", "--port", "8000"]
