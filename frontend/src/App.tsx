@@ -3,6 +3,7 @@ import { useRef, useState } from "react";
 import { SkyChart } from "./components/SkyChart";
 import { InputPanel, type DefaultValues } from "./components/InputPanel";
 import { NarrativeBox } from "./components/NarrativeBox";
+import { ShareDownload } from "./components/ShareDownload";
 import { PrivacyDialog, hasAgreedToPrivacy } from "./components/PrivacyDialog";
 import { fetchSkyData, fetchNarrative, ApiError } from "./api/client";
 import { t, detectLang } from "./i18n";
@@ -25,6 +26,7 @@ export default function App() {
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [theme, setThemeUsed] = useState("");
+  const [whenStr, setWhenStr] = useState("");
   const [inputOpen, setInputOpen] = useState(true);
 
   async function handleSubmit(address: string, when: string, submittedTheme: string) {
@@ -32,6 +34,7 @@ export default function App() {
     setNarrative(null);
     setNarrativeLimitReached(false);
     setThemeUsed(submittedTheme);
+    setWhenStr(when);
     setLoadingMessage(t("loading_compute", lang));
 
     let data: SkyData;
@@ -90,6 +93,16 @@ export default function App() {
       {errorMsg && <div className="error-box">{errorMsg}</div>}
 
       <NarrativeBox text={narrative} limitReached={narrativeLimitReached} lang={lang} />
+
+      {skyData && (
+        <ShareDownload
+          canvasRef={canvasRef}
+          narrative={narrative}
+          lang={lang}
+          whenStr={whenStr}
+          theme={theme}
+        />
+      )}
 
       {inputOpen ? (
         <InputPanel
