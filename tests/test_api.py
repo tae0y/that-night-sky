@@ -126,3 +126,9 @@ def test_narrative_falls_back_on_claude_error():
         )
     assert response.status_code == 200
     assert response.json()["text"] in ("That night. The sky.",)
+
+
+def test_healthz():
+    response = client.get("/healthz")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}

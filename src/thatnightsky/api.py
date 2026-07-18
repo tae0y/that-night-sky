@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import secrets
 from dataclasses import asdict
+from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request, Response  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 from pydantic import BaseModel, ConfigDict  # noqa: E402
 from pydantic.alias_generators import to_camel  # noqa: E402
 
@@ -152,3 +154,13 @@ def post_narrative(
         _narrative_counts[session_id] = count + 1
 
     return NarrativeResponse(text=text)
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+_FRONTEND_DIST = Path(__file__).parent.parent.parent / "frontend" / "dist"
+if _FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=_FRONTEND_DIST, html=True), name="frontend")
