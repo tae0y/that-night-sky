@@ -1,6 +1,6 @@
 # Run ThatNightSky in Docker
 
-This page describes how to build and run the ThatNightSky Streamlit app using Docker Compose.
+This page describes how to build and run the ThatNightSky app (FastAPI + React) using Docker Compose.
 
 ## Prerequisites
 
@@ -24,7 +24,7 @@ Required keys:
 
 ## Run locally
 
-Use `docker-compose.override.yml` together with the base file. The override exposes port 8501 directly to the host and replaces the external network with a local one, so no external dependency is needed.
+Use `docker-compose.override.yml` together with the base file. The override exposes port 8000 directly to the host and replaces the external network with a local one, so no external dependency is needed.
 
 1. From the repository root, start the app:
 
@@ -32,7 +32,7 @@ Use `docker-compose.override.yml` together with the base file. The override expo
     docker compose -f docker/docker-compose.yml -f docker/docker-compose.override.yml up --build
     ```
 
-1. Open `http://localhost:8501` in a browser.
+1. Open `http://localhost:8000` in a browser.
 
     To stop:
 
