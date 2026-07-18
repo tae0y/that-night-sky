@@ -32,7 +32,14 @@ def test_sky_data_returns_stars_and_lines():
     assert len(body["stars"]) > 0
     first_star = body["stars"][0]
     assert set(first_star.keys()) == {
-        "hip", "raDeg", "decDeg", "magnitude", "x", "y", "azDeg", "altDeg",
+        "hip",
+        "raDeg",
+        "decDeg",
+        "magnitude",
+        "x",
+        "y",
+        "azDeg",
+        "altDeg",
     }
     assert isinstance(body["constellationLines"], list)
     assert isinstance(body["constellationPositions"], list)
@@ -46,7 +53,11 @@ def test_sky_data_invalid_address_returns_422():
     ):
         response = client.post(
             "/api/sky-data",
-            json={"address": "이런주소는존재하지않습니다아아아", "when": "2024-01-01 00:00", "lang": "ko"},
+            json={
+                "address": "이런주소는존재하지않습니다아아아",
+                "when": "2024-01-01 00:00",
+                "lang": "ko",
+            },
         )
     assert response.status_code == 422
     assert "detail" in response.json()

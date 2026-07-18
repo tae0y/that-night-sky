@@ -67,9 +67,7 @@ class SkyDataResponse(CamelModel):
 @app.post("/api/sky-data", response_model=SkyDataResponse)
 def post_sky_data(body: SkyDataRequest) -> SkyDataResponse:
     try:
-        sky_data = run(
-            QueryInput(address=body.address, when=body.when), lang=body.lang
-        )
+        sky_data = run(QueryInput(address=body.address, when=body.when), lang=body.lang)
     except GeocodingError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
