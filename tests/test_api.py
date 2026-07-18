@@ -9,7 +9,7 @@ from thatnightsky.api import app
 from thatnightsky.compute import GeocodingError
 from thatnightsky.models import ObserverContext
 
-client = TestClient(app)
+client = TestClient(app, base_url="https://testserver")
 
 _FAKE_CONTEXT = ObserverContext(
     lat=35.1796,
@@ -83,7 +83,7 @@ def test_narrative_returns_text_and_sets_cookie():
 
 
 def test_narrative_429_after_three_calls():
-    session_client = TestClient(app)
+    session_client = TestClient(app, base_url="https://testserver")
     with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
         for _ in range(3):
             r = session_client.post(

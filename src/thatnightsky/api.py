@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import time
 from dataclasses import asdict
 from pathlib import Path
 
@@ -93,12 +94,24 @@ def post_sky_data(body: SkyDataRequest) -> SkyDataResponse:
 
 
 _SESSION_COOKIE = "tns_session"
+_SESSION_MAX_AGE_SECONDS = 86400
 _MAX_NARRATIVES_PER_SESSION = 3
-_narrative_counts: dict[str, int] = {}
+_narrative_counts: dict[str, tuple[int, float]] = {}  # session_id -> (count, last_seen)
 _NARRATIVE_FALLBACK = {
     "ko": "그날, 밤, 하늘입니다.",
     "en": "That night. The sky.",
 }
+
+
+def _prune_expired_sessions() -> None:
+    """Evict session entries older than the cookie's max age, so the in-memory
+    rate-limit map stays bounded instead of growing for the life of the process."""
+    cutoff = time.time() - _SESSION_MAX_AGE_SECONDS
+    expired = [
+        sid for sid, (_, last_seen) in _narrative_counts.items() if last_seen < cutoff
+    ]
+    for sid in expired:
+        del _narrative_counts[sid]
 
 
 class NarrativeRequest(CamelModel):
@@ -121,8 +134,9 @@ def _get_session_id(request: Request, response: Response) -> str:
             _SESSION_COOKIE,
             session_id,
             httponly=True,
+            secure=True,
             samesite="lax",
-            max_age=86400,
+            max_age=_SESSION_MAX_AGE_SECONDS,
         )
     return session_id
 
@@ -132,7 +146,8 @@ def post_narrative(
     body: NarrativeRequest, request: Request, response: Response
 ) -> NarrativeResponse:
     session_id = _get_session_id(request, response)
-    count = _narrative_counts.get(session_id, 0)
+    _prune_expired_sessions()
+    count, _ = _narrative_counts.get(session_id, (0, 0.0))
     if count >= _MAX_NARRATIVES_PER_SESSION:
         raise HTTPException(status_code=429, detail="narrative limit reached")
 
@@ -151,7 +166,7 @@ def post_narrative(
     except Exception:
         text = _NARRATIVE_FALLBACK.get(body.lang, _NARRATIVE_FALLBACK["en"])
     else:
-        _narrative_counts[session_id] = count + 1
+        _narrative_counts[session_id] = (count + 1, time.time())
 
     return NarrativeResponse(text=text)
 
