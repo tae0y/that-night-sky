@@ -113,6 +113,36 @@ export function downloadCompositeCard(canvas: HTMLCanvasElement, narrative: stri
   }, "image/png");
 }
 
+async function tryShare(
+  canvas: HTMLCanvasElement,
+  narrative: string,
+): Promise<"shared" | "cancelled" | "unsupported"> {
+  if (typeof navigator.share !== "function") return "unsupported";
+
+  await ensureCardFontLoaded();
+  const composite = buildCompositeCanvas(canvas, narrative);
+  const blob: Blob | null = await new Promise((resolve) =>
+    composite.toBlob(resolve, "image/png"),
+  );
+  if (!blob) return "unsupported";
+
+  const file = new File([blob], "that-night-sky.png", { type: "image/png" });
+  const shareData: ShareData = { title: "ThatNightSky", text: narrative };
+  if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
+    shareData.files = [file];
+  } else {
+    shareData.url = window.location.href;
+  }
+
+  try {
+    await navigator.share(shareData);
+    return "shared";
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") return "cancelled";
+    return "unsupported";
+  }
+}
+
 interface Props {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   narrative: string | null;
@@ -123,6 +153,8 @@ interface Props {
 
 export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shareUnsupported, setShareUnsupported] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   function handleDownloadChart() {
     const canvas = canvasRef.current;
@@ -139,6 +171,19 @@ export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Pr
     setMenuOpen(false);
   }
 
+  async function handleShare() {
+    const canvas = canvasRef.current;
+    if (!canvas || !narrative) return;
+    const result = await tryShare(canvas, narrative);
+    if (result === "unsupported") setShareUnsupported(true);
+  }
+
+  async function handleCopyLink() {
+    await navigator.clipboard.writeText(window.location.href);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  }
+
   return (
     <div className="share-download">
       <button onClick={() => setMenuOpen((v) => !v)}>{t("btn_save_menu", lang)} ▾</button>
@@ -149,6 +194,19 @@ export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Pr
             <button onClick={handleDownloadCard}>{t("btn_download_card", lang)}</button>
           )}
         </div>
+      )}
+      {narrative && (
+        <>
+          <button onClick={handleShare}>{t("btn_share", lang)}</button>
+          {shareUnsupported && (
+            <>
+              <button onClick={handleCopyLink}>
+                {linkCopied ? t("share_copied", lang) : t("btn_copy_link", lang)}
+              </button>
+              <button onClick={handleDownloadCard}>{t("btn_download_card", lang)}</button>
+            </>
+          )}
+        </>
       )}
     </div>
   );
