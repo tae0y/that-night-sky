@@ -61,3 +61,68 @@ def test_sky_data_invalid_address_returns_422():
         )
     assert response.status_code == 422
     assert "detail" in response.json()
+
+
+def test_narrative_returns_text_and_sets_cookie():
+    with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
+        response = client.post(
+            "/api/narrative",
+            json={
+                "address": "Seoul",
+                "when": "2024-01-01 20:00",
+                "constellationPositions": [
+                    {"name": "Ori", "azDeg": 90.0, "altDeg": 45.0}
+                ],
+                "theme": "",
+                "lang": "en",
+            },
+        )
+    assert response.status_code == 200
+    assert response.json() == {"text": "a poem"}
+    assert "tns_session" in response.cookies
+
+
+def test_narrative_429_after_three_calls():
+    session_client = TestClient(app)
+    with patch("thatnightsky.api.generate_night_description", return_value="a poem"):
+        for _ in range(3):
+            r = session_client.post(
+                "/api/narrative",
+                json={
+                    "address": "Seoul",
+                    "when": "2024-01-01 20:00",
+                    "constellationPositions": [],
+                    "theme": "",
+                    "lang": "en",
+                },
+            )
+            assert r.status_code == 200
+        r4 = session_client.post(
+            "/api/narrative",
+            json={
+                "address": "Seoul",
+                "when": "2024-01-01 20:00",
+                "constellationPositions": [],
+                "theme": "",
+                "lang": "en",
+            },
+        )
+    assert r4.status_code == 429
+
+
+def test_narrative_falls_back_on_claude_error():
+    with patch(
+        "thatnightsky.api.generate_night_description", side_effect=RuntimeError("boom")
+    ):
+        response = client.post(
+            "/api/narrative",
+            json={
+                "address": "Seoul",
+                "when": "2024-01-01 20:00",
+                "constellationPositions": [],
+                "theme": "",
+                "lang": "en",
+            },
+        )
+    assert response.status_code == 200
+    assert response.json()["text"] in ("That night. The sky.",)
