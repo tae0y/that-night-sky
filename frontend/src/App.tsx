@@ -1,6 +1,7 @@
 // frontend/src/App.tsx
 import { useEffect, useRef, useState } from "react";
 import { SkyChart } from "./components/SkyChart";
+import { Starfield } from "./components/Starfield";
 import { InputPanel, type DefaultValues } from "./components/InputPanel";
 import { NarrativeBox } from "./components/NarrativeBox";
 import { ShareDownload } from "./components/ShareDownload";
@@ -25,6 +26,7 @@ export default function App() {
   }, [lang]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const starfieldRef = useRef<HTMLCanvasElement>(null);
   const [privacyAgreed, setPrivacyAgreed] = useState(hasAgreedToPrivacy());
   const [skyData, setSkyData] = useState<SkyData | null>(null);
   const [narrative, setNarrative] = useState<string | null>(null);
@@ -89,6 +91,8 @@ export default function App() {
 
   return (
     <div className="app">
+      <Starfield canvasRef={starfieldRef} />
+
       {skyData ? (
         <SkyChart skyData={skyData} canvasRef={canvasRef} />
       ) : (
@@ -108,6 +112,7 @@ export default function App() {
       {skyData && !inputOpen && (
         <ShareDownload
           canvasRef={canvasRef}
+          starfieldRef={starfieldRef}
           narrative={narrative}
           lang={lang}
           whenStr={whenStr}

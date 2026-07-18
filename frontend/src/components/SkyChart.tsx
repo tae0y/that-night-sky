@@ -13,6 +13,23 @@ function starRadius(magnitude: number): number {
   return Math.max(0.0018, Math.min(r, 0.018));
 }
 
+// Radial-gradient glow sprite (bright core → transparent edge), drawn once and
+// stamped per star so each star reads as a translucent glow rather than a disc.
+function makeGoldGlowSprite(): HTMLCanvasElement {
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const g = c.getContext("2d")!;
+  const grad = g.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, "rgba(255,244,206,0.85)");
+  grad.addColorStop(0.28, "rgba(240,224,176,0.3)");
+  grad.addColorStop(1, "rgba(240,224,176,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  return c;
+}
+
 function starOpacity(magnitude: number): number {
   return Math.max(0.35, Math.min(1.0, (6 - magnitude) / 6));
 }
@@ -29,6 +46,7 @@ export function SkyChart({ skyData, canvasRef }: Props) {
     const context = canvas.getContext("2d");
     if (!context) return;
 
+    const glowSprite = makeGoldGlowSprite();
     const visible = skyData.stars.filter((s) => s.altDeg >= 0);
     const hipToXY = new Map<number, [number, number]>();
     for (const s of visible) hipToXY.set(s.hip, [s.x, s.y]);
@@ -50,6 +68,7 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       canvas!.style.position = "fixed";
       canvas!.style.left = `${Math.round((vw - 2 * R) / 2)}px`;
       canvas!.style.top = `${CENTRE_TOP_PX}px`;
+      canvas!.style.zIndex = "1"; // above the ambient .starfield-bg (z-index 0)
       return R;
     }
 
@@ -58,11 +77,19 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       const S = R * dpr;
 
       context!.setTransform(1, 0, 0, 1, 0, 0);
-      context!.fillStyle = BG;
-      context!.fillRect(0, 0, canvas!.width, canvas!.height);
+      context!.clearRect(0, 0, canvas!.width, canvas!.height);
 
       // data -> pixel: px = S*(x+1), py = S*y
       context!.setTransform(S, 0, 0, S, S, 0);
+
+      // Confine the opaque sky to the horizon disc so the ambient background
+      // starfield shows through the corners instead of a solid rectangle.
+      context!.save();
+      context!.beginPath();
+      context!.arc(0, 0, 1, 0, Math.PI * 2);
+      context!.clip();
+      context!.fillStyle = BG;
+      context!.fillRect(-1, 0, 2, 1);
 
       context!.save();
       context!.rotate((rotAngle * Math.PI) / 180);
@@ -79,14 +106,22 @@ export function SkyChart({ skyData, canvasRef }: Props) {
         context!.stroke();
       }
 
+      // Each star = translucent glow sprite + crisp core, so brighter stars
+      // read as luminous points rather than flat dots.
       context!.fillStyle = STAR_COLOR;
       for (const s of visible) {
-        context!.globalAlpha = starOpacity(s.magnitude);
+        const r = starRadius(s.magnitude);
+        const op = starOpacity(s.magnitude);
+        const gsize = r * 11;
+        context!.globalAlpha = op * 0.6;
+        context!.drawImage(glowSprite, s.x - gsize / 2, s.y - gsize / 2, gsize, gsize);
+        context!.globalAlpha = op;
         context!.beginPath();
-        context!.arc(s.x, s.y, starRadius(s.magnitude), 0, Math.PI * 2);
+        context!.arc(s.x, s.y, r * 0.85, 0, Math.PI * 2);
         context!.fill();
       }
-      context!.restore();
+      context!.restore(); // rotation
+      context!.restore(); // disc clip
 
       context!.globalAlpha = 0.85;
       context!.strokeStyle = HORIZON_COLOR;

@@ -9,7 +9,29 @@ export function buildFilename(whenStr: string, theme: string): string {
   return `${datePart}_${hhPart}00${themePart}.png`;
 }
 
-export function downloadChartOnly(canvas: HTMLCanvasElement, filename: string) {
+// Composite the ambient starfield + horizon dome into a single viewport-sized
+// image, so a saved chart includes the area *outside* the dome (the background
+// stars) exactly as it appears on screen — not just the bare dome canvas.
+export function composeSkyCanvas(
+  chart: HTMLCanvasElement,
+  starfield: HTMLCanvasElement | null,
+): HTMLCanvasElement {
+  const dpr = window.devicePixelRatio || 1;
+  const out = document.createElement("canvas");
+  out.width = Math.round(window.innerWidth * dpr);
+  out.height = Math.round(window.innerHeight * dpr);
+  const ctx = out.getContext("2d")!;
+  ctx.fillStyle = "#0d1b35";
+  ctx.fillRect(0, 0, out.width, out.height);
+  if (starfield) ctx.drawImage(starfield, 0, 0, out.width, out.height);
+  // The dome canvas is fixed-positioned at these CSS offsets; place it to match.
+  const left = parseFloat(chart.style.left) || 0;
+  const top = parseFloat(chart.style.top) || 0;
+  ctx.drawImage(chart, Math.round(left * dpr), Math.round(top * dpr));
+  return out;
+}
+
+function triggerDownload(canvas: HTMLCanvasElement, filename: string) {
   canvas.toBlob((blob) => {
     if (!blob) return;
     const url = URL.createObjectURL(blob);
@@ -98,29 +120,20 @@ export function buildCompositeCanvas(source: HTMLCanvasElement, narrative: strin
 
 // Caller must `await ensureCardFontLoaded()` before calling this — buildCompositeCanvas
 // itself stays synchronous so it can be reused as-is by both this function and tryShare (Task 14).
-export function downloadCompositeCard(canvas: HTMLCanvasElement, narrative: string, filename: string) {
-  const composite = buildCompositeCanvas(canvas, narrative);
-  composite.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, "image/png");
+export function downloadCompositeCard(source: HTMLCanvasElement, narrative: string, filename: string) {
+  const composite = buildCompositeCanvas(source, narrative);
+  triggerDownload(composite, filename);
 }
 
 async function tryShare(
-  canvas: HTMLCanvasElement,
+  chart: HTMLCanvasElement,
+  starfield: HTMLCanvasElement | null,
   narrative: string,
 ): Promise<"shared" | "cancelled" | "unsupported"> {
   if (typeof navigator.share !== "function") return "unsupported";
 
   await ensureCardFontLoaded();
-  const composite = buildCompositeCanvas(canvas, narrative);
+  const composite = buildCompositeCanvas(composeSkyCanvas(chart, starfield), narrative);
   const blob: Blob | null = await new Promise((resolve) =>
     composite.toBlob(resolve, "image/png"),
   );
@@ -145,13 +158,14 @@ async function tryShare(
 
 interface Props {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  starfieldRef: RefObject<HTMLCanvasElement | null>;
   narrative: string | null;
   lang: Lang;
   whenStr: string;
   theme: string;
 }
 
-export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Props) {
+export function ShareDownload({ canvasRef, starfieldRef, narrative, whenStr, theme, lang }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareUnsupported, setShareUnsupported] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -159,7 +173,8 @@ export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Pr
   function handleDownloadChart() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    downloadChartOnly(canvas, buildFilename(whenStr, theme));
+    const sky = composeSkyCanvas(canvas, starfieldRef.current);
+    triggerDownload(sky, buildFilename(whenStr, theme));
     setMenuOpen(false);
   }
 
@@ -167,14 +182,15 @@ export function ShareDownload({ canvasRef, narrative, whenStr, theme, lang }: Pr
     const canvas = canvasRef.current;
     if (!canvas || !narrative) return;
     await ensureCardFontLoaded();
-    downloadCompositeCard(canvas, narrative, `card_${buildFilename(whenStr, theme)}`);
+    const sky = composeSkyCanvas(canvas, starfieldRef.current);
+    downloadCompositeCard(sky, narrative, `card_${buildFilename(whenStr, theme)}`);
     setMenuOpen(false);
   }
 
   async function handleShare() {
     const canvas = canvasRef.current;
     if (!canvas || !narrative) return;
-    const result = await tryShare(canvas, narrative);
+    const result = await tryShare(canvas, starfieldRef.current, narrative);
     if (result === "unsupported") setShareUnsupported(true);
   }
 
