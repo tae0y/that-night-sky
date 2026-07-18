@@ -48,7 +48,7 @@ export function SkyChart({ skyData, canvasRef, rotationDeg = 0 }: Props) {
       canvas!.style.height = `${R}px`;
       canvas!.style.position = "fixed";
       canvas!.style.left = `${Math.round((vw - 2 * R) / 2)}px`;
-      canvas!.style.top = `${CENTRE_TOP_PX - R}px`;
+      canvas!.style.top = `${CENTRE_TOP_PX}px`;
       return R;
     }
 
