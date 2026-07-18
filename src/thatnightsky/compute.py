@@ -112,7 +112,9 @@ def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContex
                 lat = float(point["y"])
                 address_display = data["refined"]["text"]
         except GeocodingError:
-            logging.warning("vworld geocoding failed; falling back to Nominatim", exc_info=True)
+            logging.warning(
+                "vworld geocoding failed; falling back to Nominatim", exc_info=True
+            )
 
     if lat is None:
         result = _geocode_nominatim(address)
@@ -120,7 +122,7 @@ def geocode_address(address: str, when: str, lang: str = "en") -> ObserverContex
             raise GeocodingError(f"Address not found: {address}")
         lat, lng, address_display = result
 
-    assert lng is not None
+    assert lng is not None  # nosec B101 - lng is always set alongside lat above; narrows type for mypy/pyright
     dt = datetime.strptime(when, "%Y-%m-%d %H:%M")
     tz_str = _tf.timezone_at(lat=lat, lng=lng)
     if tz_str is None:

@@ -94,7 +94,7 @@ export default function App() {
 
       <NarrativeBox text={narrative} limitReached={narrativeLimitReached} lang={lang} />
 
-      {skyData && (
+      {skyData && !inputOpen && (
         <ShareDownload
           canvasRef={canvasRef}
           narrative={narrative}

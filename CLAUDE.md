@@ -9,7 +9,7 @@ A React + FastAPI web app that renders an interactive star chart for a given dat
 ## Run
 
 ```shell
-# FastAPI backend (serves /skydata, /narrative, /healthz)
+# FastAPI backend (serves /api/sky-data, /api/narrative, /healthz)
 uv run uvicorn thatnightsky.api:app --port 8000
 
 # React frontend (dev server)
@@ -95,11 +95,11 @@ pre-commit run pip-audit --hook-stage manual
 
 ## Tests
 
-No automated tests exist in this project. The pre-commit hooks (ruff, pyright, bandit) are the primary quality gate.
+`tests/test_api.py` contains pytest tests covering `api.py`'s FastAPI endpoints (run with `uv run pytest tests/ -v`); it does not cover `compute.py`, `narrative.py`, or the frontend. The pre-commit hooks (ruff, pyright, bandit) remain the primary quality gate alongside this suite.
 
 ## Frontend State
 
-The React frontend (`frontend/src/`) holds UI state in component `useState` and persists user inputs (address, date/time, theme) and the privacy-agreement flag across reloads via `localStorage`. The narrative call-count cap is tracked server-side via a session cookie set by `api.py`.
+The React frontend (`frontend/src/`) holds UI state in component `useState`. Form inputs (address, date/time, theme) reset to hardcoded `DEFAULT_VALUES` in `App.tsx` on reload — they are not persisted. Only the privacy-agreement flag persists across reloads, via `localStorage` (`PrivacyDialog.tsx`). The narrative call-count cap is tracked server-side via a session cookie set by `api.py`.
 
 ## Dependency Management
 
