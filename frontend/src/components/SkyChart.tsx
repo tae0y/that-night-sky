@@ -60,9 +60,12 @@ export function SkyChart({ skyData, canvasRef }: Props) {
       const dpr = window.devicePixelRatio || 1;
       const vh = window.innerHeight;
       const vw = window.innerWidth;
-      // Height drives the dome on wide screens; on narrow/portrait viewports the
-      // width cap keeps the full ∪ dome (2R wide) from being cropped off-screen.
-      const R = Math.round(Math.min(vh * 0.7, vw * 0.6));
+      // Height drives the dome's size on (almost) every viewport, so its radius
+      // reaches down close to the narrative box instead of stopping halfway up
+      // the screen. On narrow/portrait phones the wide width cap no longer binds,
+      // so the dome (2R wide) bleeds off both side edges — an intentional trade:
+      // a taller, more legible dome beats a small one that avoids side-cropping.
+      const R = Math.round(Math.min(vh * 0.75, vw * 1.8));
       canvas!.width = Math.round(2 * R * dpr);
       canvas!.height = Math.round(R * dpr);
       canvas!.style.width = `${2 * R}px`;
