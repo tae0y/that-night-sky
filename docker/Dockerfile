@@ -50,6 +50,7 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --chown=appuser:appuser src/ ./src/
 COPY --chown=appuser:appuser resources/ ./resources/
 COPY --from=frontend-builder --chown=appuser:appuser /app/frontend/dist ./frontend/dist
+RUN mkdir -p /app/logs && chown appuser:appuser /app/logs
 
 USER appuser
 

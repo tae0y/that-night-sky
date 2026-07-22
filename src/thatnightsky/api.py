@@ -18,10 +18,14 @@ from pydantic import BaseModel, ConfigDict  # noqa: E402
 from pydantic.alias_generators import to_camel  # noqa: E402
 
 from thatnightsky.compute import GeocodingError, run  # noqa: E402
+from thatnightsky.logging_setup import configure_access_logger  # noqa: E402
 from thatnightsky.models import ConstellationPosition, QueryInput  # noqa: E402
 from thatnightsky.narrative import generate_night_description  # noqa: E402
 
 app = FastAPI(title="ThatNightSky API")
+
+_LOG_DIR = Path(__file__).parent.parent.parent / "logs"
+_access_logger = configure_access_logger(_LOG_DIR)
 
 
 class CamelModel(BaseModel):
@@ -71,7 +75,14 @@ class SkyDataResponse(CamelModel):
 
 
 @app.post("/api/sky-data", response_model=SkyDataResponse)
-def post_sky_data(body: SkyDataRequest) -> SkyDataResponse:
+def post_sky_data(body: SkyDataRequest, request: Request) -> SkyDataResponse:
+    _access_logger.info(
+        "sky-data ip=%s address=%s when=%s lang=%s",
+        request.client.host if request.client else "-",
+        body.address,
+        body.when,
+        body.lang,
+    )
     try:
         sky_data = run(QueryInput(address=body.address, when=body.when), lang=body.lang)
     except GeocodingError as e:
@@ -161,6 +172,15 @@ def post_narrative(
     body: NarrativeRequest, request: Request, response: Response
 ) -> NarrativeResponse:
     session_id = _get_session_id(request, response)
+    _access_logger.info(
+        "narrative ip=%s session=%s address=%s when=%s lang=%s theme_given=%s",
+        request.client.host if request.client else "-",
+        session_id[:8],
+        body.address,
+        body.when,
+        body.lang,
+        bool(body.theme.strip()),
+    )
     _prune_expired_sessions()
     with _narrative_lock:
         count, _ = _narrative_counts.get(session_id, (0, 0.0))

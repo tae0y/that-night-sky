@@ -9,6 +9,8 @@ services:
     env_file: ../.env
     expose:
       - "8000"
+    volumes:
+      - ../logs:/app/logs
     networks:
       - internal
     restart: unless-stopped
