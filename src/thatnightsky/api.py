@@ -173,13 +173,13 @@ def post_narrative(
 ) -> NarrativeResponse:
     session_id = _get_session_id(request, response)
     _access_logger.info(
-        "narrative ip=%s session=%s address=%s when=%s lang=%s theme_given=%s",
+        "narrative ip=%s session=%s address=%s when=%s lang=%s theme=%r",
         request.client.host if request.client else "-",
         session_id[:8],
         body.address,
         body.when,
         body.lang,
-        bool(body.theme.strip()),
+        body.theme,
     )
     _prune_expired_sessions()
     with _narrative_lock:
