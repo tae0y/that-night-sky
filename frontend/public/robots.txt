@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://thatnightsky.tae0y.net/sitemap.xml
